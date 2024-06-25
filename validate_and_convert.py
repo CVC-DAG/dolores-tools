@@ -13,6 +13,7 @@ MUSESCORE_EXECUTABLE = (
 )
 
 RE_FNAME = re.compile(r"(.+)\.([0-9]{2})\.mscz")
+OUTPUT_EXTENSION = "jpg"
 
 
 def validate_mscz(images: List[str], mscz_path: Path) -> None:
@@ -61,11 +62,15 @@ def process_images(pack_path: Path) -> List[str]:
 
     for img in images:
         if (
-            img.suffix in {".tif", ".png", ".jpeg"}
-            and not (img.parent / f"{img.stem}.jpg").exists()
+            img.suffix in {".tif", ".png", ".jpeg", "jpg"} - {OUTPUT_EXTENSION}
+            and not (img.parent / f"{img.stem}.{OUTPUT_EXTENSION}").exists()
         ):
             run(
-                ["convert", str(img), str(img.parent / f"{img.stem}.jpg")],
+                [
+                    "convert",
+                    str(img),
+                    str(img.parent / f"{img.stem}.{OUTPUT_EXTENSION}"),
+                ],
                 capture_output=True,
                 text=True,
                 check=False,
