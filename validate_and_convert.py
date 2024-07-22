@@ -1,6 +1,7 @@
 import logging
 import re
 import shutil
+import xml.etree.ElementTree as ET
 from argparse import ArgumentParser, Namespace
 from pathlib import Path
 from subprocess import run
@@ -9,7 +10,7 @@ from typing import List
 _LOGGER = logging.getLogger(__name__)
 
 MUSESCORE_EXECUTABLE = (
-    "/home/ptorras/AppImage/MuseScore-Studio-4.3.1.241490902-x86_64.AppImage"
+    "/home/ptorras/AppImage/MuseScore-Studio-4.3.2.241630832-x86_64.AppImage"
 )
 
 RE_FNAME = re.compile(r"(.+)\.([0-9]{2})\.mscz")
@@ -102,7 +103,7 @@ def main(args: Namespace) -> None:
     output_path = args.set_path.parent / f"{args.set_path.name}_CLEAN"
     output_path.mkdir(exist_ok=True, parents=False)
     for pack_path in args.set_path.glob("*"):
-        _LOGGER.info("Processing {pack_path}...")
+        _LOGGER.info(f"Processing {pack_path}...")
         clean_pack_path = output_path / pack_path.name
         clean_pack_path.mkdir(exist_ok=True, parents=False)
         convert_pack(pack_path, args.overwrite)
@@ -133,7 +134,9 @@ def convert_pack(pack_path: Path, overwrite: bool) -> None:
 
     for mscz_file in musescore_folder.glob("*.mscz"):
         _LOGGER.info(f"Converting {mscz_file} to XML...")
-        mxml_file = musicxml_folder / f"{mscz_file.name}.mxl"
+
+        # Use uncompressed MusicXML to incorporate identifiers afterward
+        mxml_file = musicxml_folder / f"{mscz_file.stem}.musicxml"
 
         if not overwrite and mxml_file.exists():
             _LOGGER.info(f"Skipping {str(mxml_file)} because it already exists")
@@ -144,7 +147,7 @@ def convert_pack(pack_path: Path, overwrite: bool) -> None:
                 MUSESCORE_EXECUTABLE,
                 str(mscz_file),
                 "-o",
-                str(musicxml_folder / f"{mscz_file.stem}.mxl"),
+                str(mxml_file),
             ],
             capture_output=True,
             text=True,
@@ -152,6 +155,28 @@ def convert_pack(pack_path: Path, overwrite: bool) -> None:
         )
         _LOGGER.debug("STDERR: " + cmd.stderr)
         _LOGGER.debug("STDOUT: " + cmd.stdout)
+
+        add_identifiers(mxml_file)
+
+
+def add_identifiers(mxml_file: Path) -> None:
+    tree = ET.parse(mxml_file)
+    root = tree.getroot()
+
+    for node_type in [
+        "barline",
+        "note",
+        "direction",
+        "barline",
+        "attributes/time",
+        "attributes/clef",
+        "attributes/key",
+    ]:
+        nodes = root.findall(f"./part/measure/{node_type}")
+        for ii, node in enumerate(nodes):
+            node.attrib["id"] = f"{node_type.split('/')[-1]}_{ii}"
+
+    tree.write(mxml_file)
 
 
 def setup() -> Namespace:
