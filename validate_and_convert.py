@@ -222,7 +222,7 @@ def _identify_beams(root: ET.Element) -> None:
         number = int(number)
 
         if beam.text == "begin":
-            beam_stack[number] = ident
+            # beam_stack[number] = ident
             beam.set("id", f"beam{ident}")
             ident += 1
         elif beam.text == "backward hook":
@@ -231,10 +231,12 @@ def _identify_beams(root: ET.Element) -> None:
         elif beam.text == "forward hook":
             beam.set("id", f"beam{ident}")
             ident += 1
-        elif beam.text == "continue":
-            beam.set("id", f"beam{beam_stack[number]}")
-        elif beam.text == "end":
-            beam.set("id", f"beam{beam_stack.pop(number)}")
+        # Continuations do not need the same identifier
+
+        # elif beam.text == "continue":
+        #     beam.set("id", f"beam{beam_stack[number]}")
+        # elif beam.text == "end":
+        #     beam.set("id", f"beam{beam_stack.pop(number)}")
 
 
 def _find(root: ET.Element, path_prefix: str, *paths: str) -> List[ET.Element]:
