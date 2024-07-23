@@ -10,7 +10,8 @@ from typing import List
 _LOGGER = logging.getLogger(__name__)
 
 MUSESCORE_EXECUTABLE = (
-    "/home/ptorras/AppImage/MuseScore-Studio-4.3.2.241630832-x86_64.AppImage"
+    # "/home/ptorras/AppImage/MuseScore-Studio-4.3.2.241630832-x86_64.AppImage"
+    "/home/pau/AppImage/MuseScore-Studio-4.3.2.241630832-x86_64.AppImage"
 )
 
 RE_FNAME = re.compile(r"(.+)\.([0-9]{2})\.mscz")
@@ -178,12 +179,23 @@ def add_identifiers(mxml_file: Path) -> None:
 
     # Objects found in various places
     _find_and_ident(root, "barline/coda", "direction/direction-type/coda")
-    _find_and_ident(root, "barline/fermata", "direction/direction-type/fermata")
+    _find_and_ident(root, "barline/fermata", "note/notations/fermata")
     _find_and_ident(root, "barline/segno", "direction/direction-type/segno")
     _find_and_ident(root, "note/notations/dynamics", "direction/direction-type/dynamics")
 
     # Objects defined in parts
     _identify_beams(root)
+    _identify_end_to_end(root, "note/notations/glissando")
+    _identify_end_to_end(root, "note/notations/slide")
+    _identify_end_to_end(root, "note/notations/slur")
+    _identify_end_to_end(root, "note/notations/tied")
+    _identify_end_to_end(root, "note/notations/tuplet")
+    _identify_end_to_end(root, "direction/direction-type/wedge")
+    _identify_end_to_end(root, "direction/direction-type/octave-shift")
+
+    # Other objects
+    _identify_articulations(root)
+    _identify_arpeggiate(root)
 
     # fmt: on
 
@@ -237,6 +249,33 @@ def _identify_beams(root: ET.Element) -> None:
         #     beam.set("id", f"beam{beam_stack[number]}")
         # elif beam.text == "end":
         #     beam.set("id", f"beam{beam_stack.pop(number)}")
+
+
+def _identify_arpeggiate(root: ET.Element) -> None:
+    ...
+
+
+def _identify_articulations(root: ET.Element) -> None:
+    arts = _find(root, "./part/measure", "note/notations/articulations")
+
+    for ii, art in enumerate(arts, 1):
+        art.set("id", f"artic{ii}")
+
+
+def _identify_end_to_end(root: ET.Element, *paths: str) -> None:
+    elements = _find(root, "./part/measure", *paths)
+    # print(elements)
+    idents = {x.split("/")[-1]: 1 for x in paths}
+
+    for element in elements:
+        style = element.get("type")
+        tag = element.tag
+
+        assert style is not None, "end to end object without style property"
+
+        if style in {"start", "crescendo", "diminuendo", "let-ring", "up", "down"}:
+            element.set("id", f"{tag}{idents[tag]}")
+            idents[tag] += 1
 
 
 def _find(root: ET.Element, path_prefix: str, *paths: str) -> List[ET.Element]:
