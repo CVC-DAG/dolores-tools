@@ -10,8 +10,12 @@ from typing import List
 _LOGGER = logging.getLogger(__name__)
 
 MUSESCORE_EXECUTABLE = (
-    # "/home/ptorras/AppImage/MuseScore-Studio-4.3.2.241630832-x86_64.AppImage"
-    "/home/pau/AppImage/MuseScore-Studio-4.3.2.241630832-x86_64.AppImage"
+    "/home/ptorras/AppImage/MuseScore-Studio-4.3.2.241630832-x86_64.AppImage"
+    # "/home/pau/AppImage/MuseScore-Studio-4.3.2.241630832-x86_64.AppImage"
+)
+
+VEROVIO_EXECUTABLE = (
+    "/home/ptorras/Documents/Repos/verovio/cmake/cmake-build-debug/verovio"
 )
 
 RE_FNAME = re.compile(r"(.+)\.([0-9]{2})\.mscz")
@@ -89,6 +93,8 @@ def copy_alignment_files(pack_path: Path, out_path: Path):
         shutil.copytree(pack_path / "MUSICXML", out_path / "MUSICXML")
     if not (out_path / "MUSESCORE").exists():
         shutil.copytree(pack_path / "MUSESCORE", out_path / "MUSESCORE")
+    if not (out_path / "SVG").exists():
+        shutil.copytree(pack_path / "SVG", out_path / "SVG")
 
     for img in pack_path.glob("*.jpg"):
         if not (out_path / img.name).exists():
@@ -116,6 +122,7 @@ def main(args: Namespace) -> None:
 def convert_pack(pack_path: Path, overwrite: bool) -> None:
     musescore_folder = pack_path / "MUSESCORE"
     musicxml_folder = pack_path / "MUSICXML"
+    svg_folder = pack_path / "SVG"
 
     _LOGGER.debug(f"Checking {str(musescore_folder)} exists...")
     if not musescore_folder.exists():
@@ -129,6 +136,11 @@ def convert_pack(pack_path: Path, overwrite: bool) -> None:
         musicxml_folder.mkdir(exist_ok=False, parents=False)
     _LOGGER.debug(f"OK!")
 
+    _LOGGER.debug(f"Creating {str(svg_folder)}...")
+    if not svg_folder.exists():
+        svg_folder.mkdir(exist_ok=False, parents=False)
+    _LOGGER.debug(f"OK!")
+
     images = process_images(pack_path)
 
     validate_mscz(images, musescore_folder)
@@ -138,6 +150,7 @@ def convert_pack(pack_path: Path, overwrite: bool) -> None:
 
         # Use uncompressed MusicXML to incorporate identifiers afterward
         mxml_file = musicxml_folder / f"{mscz_file.stem}.musicxml"
+        svg_file = svg_folder / f"{mscz_file.stem}.svg"
 
         if not overwrite and mxml_file.exists():
             _LOGGER.info(f"Skipping {str(mxml_file)} because it already exists")
@@ -158,6 +171,35 @@ def convert_pack(pack_path: Path, overwrite: bool) -> None:
         _LOGGER.debug("STDOUT: " + cmd.stdout)
 
         add_identifiers(mxml_file)
+
+        # Run Verovio to generate the SVGs accordingly
+        cmd = run(
+            [
+                VEROVIO_EXECUTABLE,
+                # "-a",
+                "--adjust-page-height",
+                "--adjust-page-width",
+                "--page-margin-bottom",
+                "0",
+                "--page-margin-left",
+                "0",
+                "--page-margin-right",
+                "0",
+                "--page-margin-top",
+                "0",
+                "--condense-first-page",
+                str(mxml_file),
+                "-o",
+                str(svg_file),
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        _LOGGER.debug("STDERR: " + cmd.stderr)
+        _LOGGER.debug("STDOUT: " + cmd.stdout)
+
+        postprocess_svg(svg_file)
 
 
 def add_identifiers(mxml_file: Path) -> None:
@@ -192,9 +234,12 @@ def add_identifiers(mxml_file: Path) -> None:
     _identify_end_to_end(root, "note/notations/tuplet")
     _identify_end_to_end(root, "direction/direction-type/wedge")
     _identify_end_to_end(root, "direction/direction-type/octave-shift")
+    _identify_end_to_end(root, "direction/direction-type/bracket")
+    _identify_end_to_end(root, "direction/direction-type/dashes")
 
     # Other objects
     _identify_articulations(root)
+    _identify_ornaments(root)
     _identify_arpeggiate(root)
 
     # fmt: on
@@ -251,8 +296,7 @@ def _identify_beams(root: ET.Element) -> None:
         #     beam.set("id", f"beam{beam_stack.pop(number)}")
 
 
-def _identify_arpeggiate(root: ET.Element) -> None:
-    ...
+def _identify_arpeggiate(root: ET.Element) -> None: ...
 
 
 def _identify_articulations(root: ET.Element) -> None:
@@ -260,6 +304,13 @@ def _identify_articulations(root: ET.Element) -> None:
 
     for ii, art in enumerate(arts, 1):
         art.set("id", f"artic{ii}")
+
+
+def _identify_ornaments(root: ET.Element) -> None:
+    orns = _find(root, "./part/measure", "note/notations/ornaments")
+
+    for ii, art in enumerate(orns, 1):
+        art.set("id", f"ornam{ii}")
 
 
 def _identify_end_to_end(root: ET.Element, *paths: str) -> None:
@@ -273,9 +324,25 @@ def _identify_end_to_end(root: ET.Element, *paths: str) -> None:
 
         assert style is not None, "end to end object without style property"
 
-        if style in {"start", "crescendo", "diminuendo", "let-ring", "up", "down"}:
+        if style in {
+            "start",
+            "crescendo",
+            "diminuendo",
+            "let-ring",
+            "up",
+            "down",
+            "sostenuto",
+        }:
             element.set("id", f"{tag}{idents[tag]}")
             idents[tag] += 1
+
+
+def _identify_measures(root: ET.Element) -> None:
+    for part in root.findall("part"):
+        part_id = part.get("id")
+        for measure in part:
+            measure_id = measure.get("number")
+            measure.set("id", f"p{part_id}_m{measure_id}")
 
 
 def _find(root: ET.Element, path_prefix: str, *paths: str) -> List[ET.Element]:
@@ -294,12 +361,51 @@ def _find_and_ident(root: ET.Element, *paths: str) -> None:
     )
 
 
-def _identify_measures(root: ET.Element) -> None:
-    for part in root.findall("part"):
-        part_id = part.get("id")
-        for measure in part:
-            measure_id = measure.get("number")
-            measure.set("id", f"p{part_id}_m{measure_id}")
+def postprocess_svg(svg_file: Path) -> None:
+    tree = ET.parse(svg_file)
+    root = tree.getroot()
+
+    _remove_unnecessary_svg(root)
+    _rebuild_beams(root)
+
+    tree.write(svg_file)
+
+
+def _remove_unnecessary_svg(root: ET.Element) -> None:
+    """Remove header and misc information from the SVG of the score.
+
+    Parameters
+    ----------
+    root : ET.Element
+        Root element of the score in SVG format.
+    """
+
+
+def _rebuild_beams(root: ET.Element) -> None:
+    """Change Verovio beam fragments into continuous beams that can be identified well.
+
+    Verovio segments beams into segments. If the initial geometry of the beam is
+    something like:
+
+    +--+--+--+
+    +--+--|  |
+    |  |  |  |
+    O  O  O  O
+
+    This will be converted into 3 different segments. The top beam will always be
+    one singular object, whereas beams below will be segmented into fragments spanning
+    the full width of the space between stems. Thus:
+
+    +11+11+11+
+    +22+33|  |
+    |  |  |  |
+    O  O  O  O
+
+    Parameters
+    ----------
+    root : ET.Element
+        Description
+    """
 
 
 def setup() -> Namespace:
