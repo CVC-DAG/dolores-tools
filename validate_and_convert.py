@@ -398,6 +398,7 @@ def postprocess_svg(svg_file: Path) -> None:
     _remove_unnecessary_svg(root)
     _rebuild_svg_beams(root)
 
+    # Performed AFTER changing beams - careful!
     _identify_svg_dots(root)
     _identify_svg_noteheads(root)
     _identify_svg_flags(root)
@@ -508,15 +509,31 @@ def _get_beam_rectangle(et_poly: ET.Element) -> Rectangle:
 def _identify_svg_dots(root: ET.Element) -> None:
     """Give an identifier to dots.
 
-    TODO: Perhaps instead of identifying dots it is better to move them to the note
-    they belong to.
-
     Parameters
     ----------
     root : ET.Element
         Root SVG score element.
 
     """
+    notes = root.findall(".//xmlns:g[@class='note']", namespaces=NAMESPACES)
+    for note in notes:
+        dots_under_note = note.findall(
+            ".//xmlns:g[@class='dots']", namespaces=NAMESPACES
+        )
+        for dot in dots_under_note:
+            dot.set("id", note.get("id", "") + f".dots")
+            for ii, ellipse in enumerate(dot):
+                ellipse.set("id", note.get("id", "") + f".dot{ii}")
+                ellipse.set("class", "single_dot")
+
+    beams = root.findall(".//xmlns:g[@class='beam_parent']", namespaces=NAMESPACES)
+    for beam in beams:
+        dots_under_beam = beam.findall(
+            ".//xmlns:g[@class='dots']", namespaces=NAMESPACES
+        )
+        noteheads_under_beam = beam.findall(
+            ".//xmlns:g[@class='note']/*[@class='notehead']", namespaces=NAMESPACES
+        )
 
 
 def _identify_svg_noteheads(root: ET.Element) -> None:
