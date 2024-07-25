@@ -5,7 +5,23 @@ import xml.etree.ElementTree as ET
 from argparse import ArgumentParser, Namespace
 from pathlib import Path
 from subprocess import run
-from typing import List
+from typing import List, NamedTuple
+
+
+class Point(NamedTuple):
+    x: int
+    y: int
+
+    def __str__(self) -> str:
+        return f"{self.x},{self.y}"
+
+
+class Rectangle(NamedTuple):
+    tl: Point
+    tr: Point
+    br: Point
+    bl: Point
+
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -19,6 +35,7 @@ VEROVIO_EXECUTABLE = (
 )
 
 RE_FNAME = re.compile(r"(.+)\.([0-9]{2})\.mscz")
+RE_BEAM_ID = re.compile(r"beam(\d+)")
 OUTPUT_EXTENSION = "jpg"
 
 
@@ -382,9 +399,9 @@ def postprocess_svg(svg_file: Path) -> None:
     _rebuild_svg_beams(root)
 
     _identify_svg_dots(root)
-
     _identify_svg_noteheads(root)
     _identify_svg_flags(root)
+    _identify_svg_tuplet_num(root)
 
     tree.write(svg_file)
 
@@ -424,6 +441,65 @@ def _rebuild_svg_beams(root: ET.Element) -> None:
     root : ET.Element
         Root SVG score element.
     """
+    beam_nodes = root.findall(".//xmlns:g[@class='beam']", namespaces=NAMESPACES)
+
+    for beam_node in beam_nodes:
+        beam_id = beam_node.get("id", "")
+        beam_id_match = RE_BEAM_ID.match(beam_id)
+
+        if beam_id_match is None:
+            raise ValueError("Invalid beam id formatting")
+        id_index = int(beam_id_match.group(1))
+
+        new_beams = []
+
+        beam_fragments = beam_node.findall("./xmlns:polygon", namespaces=NAMESPACES)
+        prev_frag = _get_beam_rectangle(beam_fragments[0])
+
+        for curr_frag in beam_fragments[1:]:
+            curr_frag = _get_beam_rectangle(curr_frag)
+
+            if prev_frag.tr == curr_frag.tl and prev_frag.br == curr_frag.bl:
+                prev_frag = Rectangle(
+                    prev_frag.tl, curr_frag.tr, curr_frag.br, prev_frag.bl
+                )
+            else:
+                new_beams.append(prev_frag)
+                prev_frag = curr_frag
+
+        new_beams.append(prev_frag)
+
+        for frag in beam_fragments:
+            beam_node.remove(frag)
+
+        for ii, new_beam in enumerate(reversed(new_beams), 1):
+            beam_node.insert(
+                0,
+                ET.Element(
+                    "ns0:polygon",
+                    attrib={
+                        "points": " ".join(map(str, new_beam)),
+                        "id": f"beam{len(new_beams) + id_index - ii}",
+                    },
+                ),
+            )
+        beam_node.set("id", beam_node.get("id", "") + "_parent")
+
+
+def _get_beam_rectangle(et_poly: ET.Element) -> Rectangle:
+    points = et_poly.get("points")
+
+    if points is None:
+        raise ValueError("Beam polygon element has no points attribute")
+
+    points = points.split(" ")
+
+    if len(points) != 4:
+        raise ValueError("More than 4 points present in rectangle polygon")
+
+    tl, tr, br, bl = map(lambda x: Point(*map(int, x.split(","))), points)
+
+    return Rectangle(tl, tr, br, bl)
 
 
 def _identify_svg_dots(root: ET.Element) -> None:
@@ -465,13 +541,16 @@ def _identify_svg_flags(root: ET.Element) -> None:
     root : ET.Element
         Root SVG score element.
     """
+    stem_nodes = root.findall(".//xmlns:g[@class='stem']", namespaces=NAMESPACES)
+
+    for stem_node in stem_nodes:
+        flag_node = stem_node.find("./xmlns:g[@class='flag']", namespaces=NAMESPACES)
+        if flag_node is not None:
+            flag_node.set("id", f"{stem_node.get('id')}.flag")
 
 
-def _identify_tuplet_numbers(root: ET.Element) -> None:
+def _identify_svg_tuplet_num(root: ET.Element) -> None:
     """Provide an identifier to tuplet number objects in the SVG.
-
-    TODO: Perhaps instead of identifying dots it is better to move them to the note
-    they belong to.
 
     Parameters
     ----------
