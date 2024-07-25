@@ -403,6 +403,7 @@ def postprocess_svg(svg_file: Path) -> None:
     _identify_svg_flags(root)
     _identify_svg_tuplet_num(root)
 
+    ET.indent(tree, "    ")
     tree.write(svg_file)
 
 
@@ -560,6 +561,13 @@ def _identify_svg_tuplet_num(root: ET.Element) -> None:
         Root SVG score element.
 
     """
+    tuplet_nodes = root.findall(".//xmlns:g[@class='tuplet']", namespaces=NAMESPACES)
+    for tuplet_node in tuplet_nodes:
+        number_node = tuplet_node.find(
+            "./xmlns:g[@class='tupletNum']", namespaces=NAMESPACES
+        )
+        if number_node is not None:
+            number_node.set("id", f"{tuplet_node.get('id')}.number")
 
 
 def setup() -> Namespace:
