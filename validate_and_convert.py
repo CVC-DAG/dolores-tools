@@ -480,10 +480,12 @@ def _rebuild_svg_beams(root: ET.Element) -> None:
                     attrib={
                         "points": " ".join(map(str, new_beam)),
                         "id": f"beam{len(new_beams) + id_index - ii}",
+                        "class": "beam",
                     },
                 ),
             )
         beam_node.set("id", beam_node.get("id", "") + "_parent")
+        beam_node.set("class", beam_node.get("class", "") + "_parent")
 
 
 def _get_beam_rectangle(et_poly: ET.Element) -> Rectangle:
