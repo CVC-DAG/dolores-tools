@@ -22,6 +22,19 @@ RE_FNAME = re.compile(r"(.+)\.([0-9]{2})\.mscz")
 OUTPUT_EXTENSION = "jpg"
 
 
+# Namespace stuff to parse SVGs adequately
+
+# ET.register_namespace("xmlns", "http://www.w3.org/2000/svg")
+# ET.register_namespace("xmlns:xlink", "http://www.w3.org/1999/xlink")
+# ET.register_namespace("xmlns:mei", "http://www.music-encoding.org/ns/mei")
+
+NAMESPACES = {
+    "xmlns": "http://www.w3.org/2000/svg",
+    "xmlns:xlink": "http://www.w3.org/1999/xlink",
+    "xmlns:mei": "http://www.music-encoding.org/ns/mei",
+}
+
+
 def validate_mscz(images: List[str], mscz_path: Path) -> None:
     found = []
     max_index = {}  # name, max_index
@@ -238,8 +251,8 @@ def add_identifiers(mxml_file: Path) -> None:
     _identify_end_to_end(root, "direction/direction-type/dashes")
 
     # Other objects
-    _identify_articulations(root)
-    _identify_ornaments(root)
+    # _identify_articulations(root)
+    # _identify_ornaments(root)
     _identify_arpeggiate(root)
 
     # fmt: on
@@ -366,7 +379,12 @@ def postprocess_svg(svg_file: Path) -> None:
     root = tree.getroot()
 
     _remove_unnecessary_svg(root)
-    _rebuild_beams(root)
+    _rebuild_svg_beams(root)
+
+    _identify_svg_dots(root)
+
+    _identify_svg_noteheads(root)
+    _identify_svg_flags(root)
 
     tree.write(svg_file)
 
@@ -381,7 +399,7 @@ def _remove_unnecessary_svg(root: ET.Element) -> None:
     """
 
 
-def _rebuild_beams(root: ET.Element) -> None:
+def _rebuild_svg_beams(root: ET.Element) -> None:
     """Change Verovio beam fragments into continuous beams that can be identified well.
 
     Verovio segments beams into segments. If the initial geometry of the beam is
@@ -404,7 +422,62 @@ def _rebuild_beams(root: ET.Element) -> None:
     Parameters
     ----------
     root : ET.Element
-        Description
+        Root SVG score element.
+    """
+
+
+def _identify_svg_dots(root: ET.Element) -> None:
+    """Give an identifier to dots.
+
+    TODO: Perhaps instead of identifying dots it is better to move them to the note
+    they belong to.
+
+    Parameters
+    ----------
+    root : ET.Element
+        Root SVG score element.
+
+    """
+
+
+def _identify_svg_noteheads(root: ET.Element) -> None:
+    """Provide an identifier to notehead objects in the SVG.
+
+    Parameters
+    ----------
+    root : ET.Element
+        Root SVG score element.
+    """
+    note_nodes = root.findall(".//xmlns:g[@class='note']", namespaces=NAMESPACES)
+    for note_node in note_nodes:
+        notehead_node = note_node.find(
+            "./xmlns:g[@class='notehead']", namespaces=NAMESPACES
+        )
+        if notehead_node is not None:
+            notehead_node.set("id", f"{note_node.get('id')}.notehead")
+
+
+def _identify_svg_flags(root: ET.Element) -> None:
+    """Provide an identifier to flag objects in the SVG.
+
+    Parameters
+    ----------
+    root : ET.Element
+        Root SVG score element.
+    """
+
+
+def _identify_tuplet_numbers(root: ET.Element) -> None:
+    """Provide an identifier to tuplet number objects in the SVG.
+
+    TODO: Perhaps instead of identifying dots it is better to move them to the note
+    they belong to.
+
+    Parameters
+    ----------
+    root : ET.Element
+        Root SVG score element.
+
     """
 
 
