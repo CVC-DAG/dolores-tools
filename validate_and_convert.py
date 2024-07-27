@@ -198,6 +198,11 @@ def convert_pack(pack_path: Path, overwrite: bool) -> None:
             text=True,
             check=False,
         )
+
+        if cmd.returncode != 0:
+            _LOGGER.info("Output for Musescore: " + cmd.stderr)
+            raise ValueError("Return code for Musescore was not zero!")
+
         _LOGGER.debug("STDERR: " + cmd.stderr)
         _LOGGER.debug("STDOUT: " + cmd.stdout)
 
@@ -227,6 +232,11 @@ def convert_pack(pack_path: Path, overwrite: bool) -> None:
             text=True,
             check=False,
         )
+
+        if cmd.returncode != 0:
+            _LOGGER.info("Output for Verovio: " + cmd.stderr)
+            raise ValueError("Return code for Verovio was not zero!")
+
         _LOGGER.debug("STDERR: " + cmd.stderr)
         _LOGGER.debug("STDOUT: " + cmd.stdout)
 
