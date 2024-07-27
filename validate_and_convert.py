@@ -26,12 +26,13 @@ class Rectangle(NamedTuple):
 _LOGGER = logging.getLogger(__name__)
 
 MUSESCORE_EXECUTABLE = (
-    "/home/ptorras/AppImage/MuseScore-Studio-4.3.2.241630832-x86_64.AppImage"
-    # "/home/pau/AppImage/MuseScore-Studio-4.3.2.241630832-x86_64.AppImage"
+    # "/home/ptorras/AppImage/MuseScore-Studio-4.3.2.241630832-x86_64.AppImage"
+    "/home/pau/AppImage/MuseScore-Studio-4.3.2.241630832-x86_64.AppImage"
 )
 
 VEROVIO_EXECUTABLE = (
-    "/home/ptorras/Documents/Repos/verovio/cmake/cmake-build-debug/verovio"
+    # "/home/ptorras/Documents/Repos/verovio/cmake/cmake-build-debug/verovio"
+    "/home/pau/repos/verovio/cmake/cmake-build-debug/verovio"
 )
 
 RE_FNAME = re.compile(r"(.+)\.([0-9]{2})\.mscz")
