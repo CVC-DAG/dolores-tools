@@ -337,7 +337,8 @@ def _identify_beams(root: ET.Element) -> None:
         #     beam.set("id", f"beam{beam_stack.pop(number)}")
 
 
-def _identify_arpeggiate(root: ET.Element) -> None: ...
+def _identify_arpeggiate(root: ET.Element) -> None:
+    ...
 
 
 def _identify_articulations(root: ET.Element) -> None:
@@ -527,6 +528,8 @@ def _identify_svg_dots(root: ET.Element) -> None:
         Root SVG score element.
 
     """
+
+    # Find dots elements within notes
     notes = root.findall(".//xmlns:g[@class='note']", namespaces=NAMESPACES)
     for note in notes:
         dots_under_note = note.findall(
@@ -534,18 +537,50 @@ def _identify_svg_dots(root: ET.Element) -> None:
         )
         for dot in dots_under_note:
             dot.set("id", note.get("id", "") + f".dots")
-            for ii, ellipse in enumerate(dot):
+            for ii, ellipse in enumerate(dot, 1):
                 ellipse.set("id", note.get("id", "") + f".dot{ii}")
                 ellipse.set("class", "single_dot")
 
+    # Find dots elements within beam groups
     beams = root.findall(".//xmlns:g[@class='beam_parent']", namespaces=NAMESPACES)
     for beam in beams:
-        dots_under_beam = beam.findall(
-            ".//xmlns:g[@class='dots']", namespaces=NAMESPACES
-        )
+        dots_under_beam = beam.find(".//xmlns:g[@class='dots']", namespaces=NAMESPACES)
+        if dots_under_beam is None:
+            continue
+
+        dot_coords = []
+        for dot in dots_under_beam:
+            # Should be an ellipse
+
+            x_dot = dot.get("cx")
+            y_dot = dot.get("cy")
+
+            assert x_dot is not None and y_dot is not None, "Ellipse has no center"
+
+            x_dot = int(x_dot)
+            y_dot = int(y_dot)
+
+            dot_coords.append(Point(x_dot, y_dot))
+
         noteheads_under_beam = beam.findall(
             ".//xmlns:g[@class='note']/*[@class='notehead']", namespaces=NAMESPACES
         )
+
+        notehead_coords = []
+        for notehead in noteheads_under_beam:
+            # Should be an ellipse
+
+            x_notehead = notehead.get("cx")
+            y_notehead = notehead.get("cy")
+
+            assert (
+                x_notehead is not None and y_notehead is not None
+            ), "Ellipse has no center"
+
+            x_notehead = int(x_notehead)
+            y_notehead = int(y_notehead)
+
+            notehead_coords.append(Point(x_dot, y_dot))
 
 
 def _identify_svg_tremolos(root: ET.Element) -> None:
