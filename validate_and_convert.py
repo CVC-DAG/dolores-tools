@@ -412,6 +412,7 @@ def postprocess_svg(svg_file: Path) -> None:
     # Performed AFTER changing beams - careful!
     _identify_svg_dots(root)
     _identify_svg_noteheads(root)
+    _identify_svg_tremolos(root)
     _identify_svg_flags(root)
     _identify_svg_tuplet_num(root)
 
@@ -545,6 +546,38 @@ def _identify_svg_dots(root: ET.Element) -> None:
         noteheads_under_beam = beam.findall(
             ".//xmlns:g[@class='note']/*[@class='notehead']", namespaces=NAMESPACES
         )
+
+
+def _identify_svg_tremolos(root: ET.Element) -> None:
+    """Give an identifier to tremolos.
+
+    Verovio will provide the identifier of the first note of the tremolo group or
+    tremolo stem. This function propagates the id alongside an index to the various
+    line elements that form the tremolo, as well as giving them a "tremolo_line" class.
+
+    Parameters
+    ----------
+    root : ET.Element
+        Root SVG score element.
+
+    """
+    ftrem_objects = root.findall(".//xmlns:g[@class='fTrem']", namespaces=NAMESPACES)
+    for ftrem in ftrem_objects:
+        ident = ftrem.get("id")
+        for ii, line in enumerate(
+            ftrem.findall("./xmlns:polygon", namespaces=NAMESPACES), 1
+        ):
+            line.set("id", f"{ident}.line{ii}")
+            line.set("class", f"fTrem_line")
+
+    btrem_objects = root.findall(".//xmlns:g[@class='bTrem']", namespaces=NAMESPACES)
+    for btrem in btrem_objects:
+        ident = btrem.get("id")
+        for ii, line in enumerate(
+            btrem.findall("./xmlns:use", namespaces=NAMESPACES), 1
+        ):
+            line.set("id", f"{ident}.line{ii}")
+            line.set("class", f"bTrem_line")
 
 
 def _identify_svg_noteheads(root: ET.Element) -> None:
