@@ -597,17 +597,19 @@ def _identify_svg_tremolos(root: Element) -> None:
         Root SVG score element.
 
     """
-    ftrem_objects = root.findall(".//g[@class='fTrem']", namespaces=NAMESPACES)
+    ftrem_objects = root.findall(".//svg:g[@class='fTrem']", namespaces=NAMESPACES)
     for ftrem in ftrem_objects:
         ident = ftrem.get("id")
-        for ii, line in enumerate(ftrem.findall("./polygon", namespaces=NAMESPACES), 1):
+        for ii, line in enumerate(
+            ftrem.findall("./svg:polygon", namespaces=NAMESPACES), 1
+        ):
             line.set("id", f"{ident}.line{ii}")
             line.set("class", f"fTrem_line")
 
-    btrem_objects = root.findall(".//g[@class='bTrem']", namespaces=NAMESPACES)
+    btrem_objects = root.findall(".//svg:g[@class='bTrem']", namespaces=NAMESPACES)
     for btrem in btrem_objects:
         ident = btrem.get("id")
-        for ii, line in enumerate(btrem.findall("./use", namespaces=NAMESPACES), 1):
+        for ii, line in enumerate(btrem.findall("./svg:use", namespaces=NAMESPACES), 1):
             line.set("id", f"{ident}.line{ii}")
             line.set("class", f"bTrem_line")
 
