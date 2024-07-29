@@ -569,6 +569,7 @@ def _identify_svg_dots(root: Element) -> None:
         dot_coords = []
         for dot in dots_element:
             # Should be an ellipse
+            dot.set("class", "single_dot")
 
             x_dot = dot.get("cx")
             y_dot = dot.get("cy")
