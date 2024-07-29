@@ -1,11 +1,15 @@
+from __future__ import annotations
+
 import logging
 import re
 import shutil
 from argparse import ArgumentParser, Namespace
+from math import inf, sqrt
 from pathlib import Path
 from subprocess import run
 from typing import List, NamedTuple
 
+import numpy as np
 # import xml.etree.ElementTree as ET
 from lxml import etree
 from lxml.etree import _Element as Element
@@ -17,6 +21,9 @@ class Point(NamedTuple):
 
     def __str__(self) -> str:
         return f"{self.x},{self.y}"
+
+    def dist(self, other: Point) -> float:
+        return sqrt((other.x - self.x) ** 2 + (other.y - self.y) ** 2)
 
 
 class Rectangle(NamedTuple):
@@ -531,44 +538,56 @@ def _identify_svg_dots(root: Element) -> None:
         Root SVG score element.
 
     """
+    # Find dots elements within other elements
+    dot_containers = root.xpath(".//*[svg:g[@class='dots']]", namespaces=NAMESPACES)
+    for container in dot_containers:
+        container_id = container.get("id", None)
 
-    # Find dots elements within notes
-    notes = root.findall(".//g[@class='note']", namespaces=NAMESPACES)
-    for note in notes:
-        dots_under_note = note.findall(".//g[@class='dots']", namespaces=NAMESPACES)
-        for dot in dots_under_note:
-            dot.set("id", note.get("id", "") + f".dots")
-            for ii, ellipse in enumerate(dot, 1):
-                ellipse.set("id", note.get("id", "") + f".dot{ii}")
+        if container_id is None:
+            raise ValueError("Container has null id")
+
+        container_class = container.get("class", None)
+
+        if container_class is None:
+            raise ValueError("Container has no known class")
+
+        dots_element = container.find("./svg:g[@class='dots']", namespaces=NAMESPACES)
+        if dots_element is None:
+            raise ValueError("For some reason there are no dots on a dot query")
+        dots_element.set("id", f"{container_id}.dots_parent")
+
+        # If the object is under a note, it is easy to process because we only need to
+        # set the id of the parent object
+        if container_class == "note":
+            for ii, ellipse in enumerate(dots_element, 1):
+                ellipse.set("id", container_id + f".dot{ii}")
                 ellipse.set("class", "single_dot")
-
-    # Find dots elements within beam groups
-    beams = root.findall(".//g[@class='beam_parent']", namespaces=NAMESPACES)
-    for beam in beams:
-        dots_under_beam = beam.find(".//g[@class='dots']", namespaces=NAMESPACES)
-        if dots_under_beam is None:
             continue
 
+        # Otherwise, we have to find all noteheads within the container and assign each
+        # dot to the closest note.
         dot_coords = []
-        for dot in dots_under_beam:
+        for dot in dots_element:
             # Should be an ellipse
 
             x_dot = dot.get("cx")
             y_dot = dot.get("cy")
 
-            assert x_dot is not None and y_dot is not None, "Ellipse has no center"
+            if x_dot is None or y_dot is None:
+                raise ValueError("Dot ellipse has no center. Can't identify SVG dots.")
 
             x_dot = int(x_dot)
             y_dot = int(y_dot)
 
             dot_coords.append(Point(x_dot, y_dot))
 
-        noteheads_under_beam = beam.findall(
-            ".//g[@class='note']/*[@class='notehead']", namespaces=NAMESPACES
+        noteheads = container.xpath(
+            ".//svg:g[@class='note']/svg:g[@class='notehead']/svg:use",
+            namespaces=NAMESPACES,
         )
-
         notehead_coords = []
-        for notehead in noteheads_under_beam:
+
+        for notehead in noteheads:
             # Should be an ellipse
 
             x_notehead = notehead.get("x")
@@ -582,6 +601,24 @@ def _identify_svg_dots(root: Element) -> None:
             y_notehead = int(y_notehead)
 
             notehead_coords.append(Point(x_notehead, y_notehead))
+
+        notehead_matrix = np.array(notehead_coords)
+        dot_matrix = np.array(dot_coords)
+
+        # Use only y coordinates
+        dist_matrix = dot_matrix[:, np.newaxis, 1] - notehead_matrix[np.newaxis, :, 1]
+        dist_matrix = np.abs(dist_matrix)
+
+        dot_indices = dist_matrix.argmin(1)
+
+        repeat_dots = {ii: 1 for ii in range(len(notehead_matrix))}
+
+        for dot_ind, note_ind in enumerate(dot_indices):
+            note_ob = noteheads[note_ind].getparent().getparent()
+            note_id = note_ob.get("id", None)
+
+            dots_element[dot_ind].set("id", f"{note_id}.dot{repeat_dots[note_ind]}")
+            repeat_dots[note_ind] += 1
 
 
 def _identify_svg_tremolos(root: Element) -> None:
