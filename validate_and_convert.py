@@ -1,11 +1,14 @@
 import logging
 import re
 import shutil
-import xml.etree.ElementTree as ET
 from argparse import ArgumentParser, Namespace
 from pathlib import Path
 from subprocess import run
 from typing import List, NamedTuple
+
+# import xml.etree.ElementTree as ET
+from lxml import etree
+from lxml.etree import _Element as Element
 
 
 class Point(NamedTuple):
@@ -26,13 +29,13 @@ class Rectangle(NamedTuple):
 _LOGGER = logging.getLogger(__name__)
 
 MUSESCORE_EXECUTABLE = (
-    # "/home/ptorras/AppImage/MuseScore-Studio-4.3.2.241630832-x86_64.AppImage"
-    "/home/pau/AppImage/MuseScore-Studio-4.3.2.241630832-x86_64.AppImage"
+    "/home/ptorras/AppImage/MuseScore-Studio-4.3.2.241630832-x86_64.AppImage"
+    # "/home/pau/AppImage/MuseScore-Studio-4.3.2.241630832-x86_64.AppImage"
 )
 
 VEROVIO_EXECUTABLE = (
-    # "/home/ptorras/Documents/Repos/verovio/cmake/cmake-build-debug/verovio"
-    "/home/pau/repos/verovio/cmake/cmake-build-debug/verovio"
+    "/home/ptorras/Documents/Repos/verovio/cmake/cmake-build-debug/verovio"
+    # "/home/pau/repos/verovio/cmake/cmake-build-debug/verovio"
 )
 
 RE_FNAME = re.compile(r"(.+)\.([0-9]{2})\.mscz")
@@ -47,9 +50,9 @@ OUTPUT_EXTENSION = "jpg"
 # ET.register_namespace("xmlns:mei", "http://www.music-encoding.org/ns/mei")
 
 NAMESPACES = {
-    "xmlns": "http://www.w3.org/2000/svg",
-    "xmlns:xlink": "http://www.w3.org/1999/xlink",
-    "xmlns:mei": "http://www.music-encoding.org/ns/mei",
+    "svg": "http://www.w3.org/2000/svg",
+    "xlink": "http://www.w3.org/1999/xlink",
+    "mei": "http://www.music-encoding.org/ns/mei",
 }
 
 
@@ -244,7 +247,7 @@ def convert_pack(pack_path: Path, overwrite: bool) -> None:
 
 
 def add_identifiers(mxml_file: Path) -> None:
-    tree = ET.parse(mxml_file)
+    tree = etree.parse(mxml_file)
     root = tree.getroot()
 
     # fmt: off
@@ -281,7 +284,7 @@ def add_identifiers(mxml_file: Path) -> None:
     # Other objects
     # _identify_articulations(root)
     # _identify_ornaments(root)
-    _identify_arpeggiate(root)
+    # _identify_arpeggiate(root)
 
     # fmt: on
 
@@ -291,12 +294,12 @@ def add_identifiers(mxml_file: Path) -> None:
     tree.write(mxml_file)
 
 
-def _identify_list(elm_list: List[ET.Element], name: str) -> None:
+def _identify_list(elm_list: List[Element], name: str) -> None:
     for ii, node in enumerate(elm_list, 1):
         node.attrib["id"] = f"{name}{ii}"
 
 
-def _identify_notes(root: ET.Element) -> None:
+def _identify_notes(root: Element) -> None:
     nodes = _find(root, "./part/measure", "note")
 
     rest_nodes = [x for x in nodes if x.find("rest") is not None]
@@ -306,9 +309,9 @@ def _identify_notes(root: ET.Element) -> None:
     _identify_list(note_nodes, "note")
 
 
-def _identify_beams(root: ET.Element) -> None:
+def _identify_beams(root: Element) -> None:
     beams = root.findall("./part/measure/note/beam")
-    beam_stack = {}
+    # beam_stack = {}
 
     ident = 1
 
@@ -337,24 +340,21 @@ def _identify_beams(root: ET.Element) -> None:
         #     beam.set("id", f"beam{beam_stack.pop(number)}")
 
 
-def _identify_arpeggiate(root: ET.Element) -> None: ...
+# def _identify_articulations(root: Element) -> None:
+#     arts = _find(root, "./part/measure", "note/notations/articulations")
+
+#     for ii, art in enumerate(arts, 1):
+#         art.set("id", f"artic{ii}")
 
 
-def _identify_articulations(root: ET.Element) -> None:
-    arts = _find(root, "./part/measure", "note/notations/articulations")
+# def _identify_ornaments(root: ET.Element) -> None:
+#     orns = _find(root, "./part/measure", "note/notations/ornaments")
 
-    for ii, art in enumerate(arts, 1):
-        art.set("id", f"artic{ii}")
-
-
-def _identify_ornaments(root: ET.Element) -> None:
-    orns = _find(root, "./part/measure", "note/notations/ornaments")
-
-    for ii, art in enumerate(orns, 1):
-        art.set("id", f"ornam{ii}")
+#     for ii, art in enumerate(orns, 1):
+#         art.set("id", f"ornam{ii}")
 
 
-def _identify_end_to_end(root: ET.Element, *paths: str) -> None:
+def _identify_end_to_end(root: Element, *paths: str) -> None:
     elements = _find(root, "./part/measure", *paths)
     # print(elements)
     idents = {x.split("/")[-1]: 1 for x in paths}
@@ -378,7 +378,7 @@ def _identify_end_to_end(root: ET.Element, *paths: str) -> None:
             idents[tag] += 1
 
 
-def _identify_measures(root: ET.Element) -> None:
+def _identify_measures(root: Element) -> None:
     for part in root.findall("part"):
         part_id = part.get("id")
         for measure in part:
@@ -386,7 +386,7 @@ def _identify_measures(root: ET.Element) -> None:
             measure.set("id", f"p{part_id}_m{measure_id}")
 
 
-def _find(root: ET.Element, path_prefix: str, *paths: str) -> List[ET.Element]:
+def _find(root: Element, path_prefix: str, *paths: str) -> List[Element]:
     output = []
 
     for path in paths:
@@ -395,7 +395,7 @@ def _find(root: ET.Element, path_prefix: str, *paths: str) -> List[ET.Element]:
     return output
 
 
-def _find_and_ident(root: ET.Element, *paths: str) -> None:
+def _find_and_ident(root: Element, *paths: str) -> None:
     _identify_list(
         _find(root, "./part/measure", *paths),
         paths[0].split("/")[-1],
@@ -403,7 +403,7 @@ def _find_and_ident(root: ET.Element, *paths: str) -> None:
 
 
 def postprocess_svg(svg_file: Path) -> None:
-    tree = ET.parse(svg_file)
+    tree = etree.parse(svg_file)
     root = tree.getroot()
 
     _remove_unnecessary_svg(root)
@@ -416,11 +416,11 @@ def postprocess_svg(svg_file: Path) -> None:
     _identify_svg_flags(root)
     _identify_svg_tuplet_num(root)
 
-    ET.indent(tree, "    ")
+    etree.indent(tree, "    ")
     tree.write(svg_file)
 
 
-def _remove_unnecessary_svg(root: ET.Element) -> None:
+def _remove_unnecessary_svg(root: Element) -> None:
     """Remove header and misc information from the SVG of the score.
 
     Parameters
@@ -430,7 +430,7 @@ def _remove_unnecessary_svg(root: ET.Element) -> None:
     """
 
 
-def _rebuild_svg_beams(root: ET.Element) -> None:
+def _rebuild_svg_beams(root: Element) -> None:
     """Change Verovio beam fragments into continuous beams that can be identified well.
 
     Verovio segments beams into segments. If the initial geometry of the beam is
@@ -455,7 +455,7 @@ def _rebuild_svg_beams(root: ET.Element) -> None:
     root : ET.Element
         Root SVG score element.
     """
-    beam_nodes = root.findall(".//xmlns:g[@class='beam']", namespaces=NAMESPACES)
+    beam_nodes = root.findall(".//svg:g[@class='beam']", namespaces=NAMESPACES)
 
     for beam_node in beam_nodes:
         beam_id = beam_node.get("id", "")
@@ -467,7 +467,10 @@ def _rebuild_svg_beams(root: ET.Element) -> None:
 
         new_beams = []
 
-        beam_fragments = beam_node.findall("./xmlns:polygon", namespaces=NAMESPACES)
+        beam_fragments = beam_node.findall("./svg:polygon", namespaces=NAMESPACES)
+        if len(beam_fragments) == 0:
+            raise ValueError("Beam without drawn polygons")
+
         prev_frag = _get_beam_rectangle(beam_fragments[0])
 
         for curr_frag in beam_fragments[1:]:
@@ -489,20 +492,21 @@ def _rebuild_svg_beams(root: ET.Element) -> None:
         for ii, new_beam in enumerate(reversed(new_beams), 1):
             beam_node.insert(
                 0,
-                ET.Element(
-                    "ns0:polygon",
+                etree.Element(
+                    "polygon",
                     attrib={
                         "points": " ".join(map(str, new_beam)),
                         "id": f"beam{len(new_beams) + id_index - ii}",
                         "class": "beam",
                     },
+                    nsmap=NAMESPACES,
                 ),
             )
         beam_node.set("id", beam_node.get("id", "") + "_parent")
         beam_node.set("class", beam_node.get("class", "") + "_parent")
 
 
-def _get_beam_rectangle(et_poly: ET.Element) -> Rectangle:
+def _get_beam_rectangle(et_poly: Element) -> Rectangle:
     points = et_poly.get("points")
 
     if points is None:
@@ -518,7 +522,7 @@ def _get_beam_rectangle(et_poly: ET.Element) -> Rectangle:
     return Rectangle(tl, tr, br, bl)
 
 
-def _identify_svg_dots(root: ET.Element) -> None:
+def _identify_svg_dots(root: Element) -> None:
     """Give an identifier to dots.
 
     Parameters
@@ -529,11 +533,9 @@ def _identify_svg_dots(root: ET.Element) -> None:
     """
 
     # Find dots elements within notes
-    notes = root.findall(".//xmlns:g[@class='note']", namespaces=NAMESPACES)
+    notes = root.findall(".//g[@class='note']", namespaces=NAMESPACES)
     for note in notes:
-        dots_under_note = note.findall(
-            ".//xmlns:g[@class='dots']", namespaces=NAMESPACES
-        )
+        dots_under_note = note.findall(".//g[@class='dots']", namespaces=NAMESPACES)
         for dot in dots_under_note:
             dot.set("id", note.get("id", "") + f".dots")
             for ii, ellipse in enumerate(dot, 1):
@@ -541,9 +543,9 @@ def _identify_svg_dots(root: ET.Element) -> None:
                 ellipse.set("class", "single_dot")
 
     # Find dots elements within beam groups
-    beams = root.findall(".//xmlns:g[@class='beam_parent']", namespaces=NAMESPACES)
+    beams = root.findall(".//g[@class='beam_parent']", namespaces=NAMESPACES)
     for beam in beams:
-        dots_under_beam = beam.find(".//xmlns:g[@class='dots']", namespaces=NAMESPACES)
+        dots_under_beam = beam.find(".//g[@class='dots']", namespaces=NAMESPACES)
         if dots_under_beam is None:
             continue
 
@@ -562,7 +564,7 @@ def _identify_svg_dots(root: ET.Element) -> None:
             dot_coords.append(Point(x_dot, y_dot))
 
         noteheads_under_beam = beam.findall(
-            ".//xmlns:g[@class='note']/*[@class='notehead']", namespaces=NAMESPACES
+            ".//g[@class='note']/*[@class='notehead']", namespaces=NAMESPACES
         )
 
         notehead_coords = []
@@ -582,7 +584,7 @@ def _identify_svg_dots(root: ET.Element) -> None:
             notehead_coords.append(Point(x_notehead, y_notehead))
 
 
-def _identify_svg_tremolos(root: ET.Element) -> None:
+def _identify_svg_tremolos(root: Element) -> None:
     """Give an identifier to tremolos.
 
     Verovio will provide the identifier of the first note of the tremolo group or
@@ -595,26 +597,22 @@ def _identify_svg_tremolos(root: ET.Element) -> None:
         Root SVG score element.
 
     """
-    ftrem_objects = root.findall(".//xmlns:g[@class='fTrem']", namespaces=NAMESPACES)
+    ftrem_objects = root.findall(".//g[@class='fTrem']", namespaces=NAMESPACES)
     for ftrem in ftrem_objects:
         ident = ftrem.get("id")
-        for ii, line in enumerate(
-            ftrem.findall("./xmlns:polygon", namespaces=NAMESPACES), 1
-        ):
+        for ii, line in enumerate(ftrem.findall("./polygon", namespaces=NAMESPACES), 1):
             line.set("id", f"{ident}.line{ii}")
             line.set("class", f"fTrem_line")
 
-    btrem_objects = root.findall(".//xmlns:g[@class='bTrem']", namespaces=NAMESPACES)
+    btrem_objects = root.findall(".//g[@class='bTrem']", namespaces=NAMESPACES)
     for btrem in btrem_objects:
         ident = btrem.get("id")
-        for ii, line in enumerate(
-            btrem.findall("./xmlns:use", namespaces=NAMESPACES), 1
-        ):
+        for ii, line in enumerate(btrem.findall("./use", namespaces=NAMESPACES), 1):
             line.set("id", f"{ident}.line{ii}")
             line.set("class", f"bTrem_line")
 
 
-def _identify_svg_noteheads(root: ET.Element) -> None:
+def _identify_svg_noteheads(root: Element) -> None:
     """Provide an identifier to notehead objects in the SVG.
 
     Parameters
@@ -622,16 +620,16 @@ def _identify_svg_noteheads(root: ET.Element) -> None:
     root : ET.Element
         Root SVG score element.
     """
-    note_nodes = root.findall(".//xmlns:g[@class='note']", namespaces=NAMESPACES)
+    note_nodes = root.findall(".//svg:g[@class='note']", namespaces=NAMESPACES)
     for note_node in note_nodes:
         notehead_node = note_node.find(
-            "./xmlns:g[@class='notehead']", namespaces=NAMESPACES
+            "./svg:g[@class='notehead']", namespaces=NAMESPACES
         )
         if notehead_node is not None:
             notehead_node.set("id", f"{note_node.get('id')}.notehead")
 
 
-def _identify_svg_flags(root: ET.Element) -> None:
+def _identify_svg_flags(root: Element) -> None:
     """Provide an identifier to flag objects in the SVG.
 
     Parameters
@@ -639,15 +637,15 @@ def _identify_svg_flags(root: ET.Element) -> None:
     root : ET.Element
         Root SVG score element.
     """
-    stem_nodes = root.findall(".//xmlns:g[@class='stem']", namespaces=NAMESPACES)
+    stem_nodes = root.findall(".//svg:g[@class='stem']", namespaces=NAMESPACES)
 
     for stem_node in stem_nodes:
-        flag_node = stem_node.find("./xmlns:g[@class='flag']", namespaces=NAMESPACES)
+        flag_node = stem_node.find("./g[@class='flag']", namespaces=NAMESPACES)
         if flag_node is not None:
             flag_node.set("id", f"{stem_node.get('id')}.flag")
 
 
-def _identify_svg_tuplet_num(root: ET.Element) -> None:
+def _identify_svg_tuplet_num(root: Element) -> None:
     """Provide an identifier to tuplet number objects in the SVG.
 
     Parameters
@@ -656,10 +654,10 @@ def _identify_svg_tuplet_num(root: ET.Element) -> None:
         Root SVG score element.
 
     """
-    tuplet_nodes = root.findall(".//xmlns:g[@class='tuplet']", namespaces=NAMESPACES)
+    tuplet_nodes = root.findall(".//svg:g[@class='tuplet']", namespaces=NAMESPACES)
     for tuplet_node in tuplet_nodes:
         number_node = tuplet_node.find(
-            "./xmlns:g[@class='tupletNum']", namespaces=NAMESPACES
+            "./svg:g[@class='tupletNum']", namespaces=NAMESPACES
         )
         if number_node is not None:
             number_node.set("id", f"{tuplet_node.get('id')}.number")
