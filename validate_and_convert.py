@@ -337,8 +337,7 @@ def _identify_beams(root: ET.Element) -> None:
         #     beam.set("id", f"beam{beam_stack.pop(number)}")
 
 
-def _identify_arpeggiate(root: ET.Element) -> None:
-    ...
+def _identify_arpeggiate(root: ET.Element) -> None: ...
 
 
 def _identify_articulations(root: ET.Element) -> None:
@@ -570,30 +569,17 @@ def _identify_svg_dots(root: ET.Element) -> None:
         for notehead in noteheads_under_beam:
             # Should be an ellipse
 
-<<<<<<< HEAD
             x_notehead = notehead.get("x")
             y_notehead = notehead.get("y")
 
             assert (
                 x_notehead is not None and y_notehead is not None
             ), "Notehead has no center"
-=======
-            x_notehead = notehead.get("cx")
-            y_notehead = notehead.get("cy")
-
-            assert (
-                x_notehead is not None and y_notehead is not None
-            ), "Ellipse has no center"
->>>>>>> origin/master
 
             x_notehead = int(x_notehead)
             y_notehead = int(y_notehead)
 
-<<<<<<< HEAD
             notehead_coords.append(Point(x_notehead, y_notehead))
-=======
-            notehead_coords.append(Point(x_dot, y_dot))
->>>>>>> origin/master
 
 
 def _identify_svg_tremolos(root: ET.Element) -> None:
