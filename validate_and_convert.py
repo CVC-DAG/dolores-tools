@@ -558,7 +558,7 @@ def _identify_svg_dots(root: Element) -> None:
 
         # If the object is under a note, it is easy to process because we only need to
         # set the id of the parent object
-        if container_class == "note":
+        if container_class in {"note", "rest"}:
             for ii, ellipse in enumerate(dots_element, 1):
                 ellipse.set("id", container_id + f".dot{ii}")
                 ellipse.set("class", "single_dot")
