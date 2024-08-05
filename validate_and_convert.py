@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 import re
 import shutil
@@ -188,6 +189,7 @@ def convert_pack(pack_path: Path, overwrite: bool) -> None:
     images = process_images(pack_path)
 
     validate_mscz(images, musescore_folder)
+    job_file = []
 
     for mscz_file in musescore_folder.glob("*.mscz"):
         _LOGGER.info(f"Converting {mscz_file} to XML...")
@@ -196,29 +198,31 @@ def convert_pack(pack_path: Path, overwrite: bool) -> None:
         mxml_file = musicxml_folder / f"{mscz_file.stem}.musicxml"
         svg_file = svg_folder / f"{mscz_file.stem}.svg"
 
-        if not overwrite and mxml_file.exists():
-            _LOGGER.info(f"Skipping {str(mxml_file)} because it already exists")
-            continue
+        job_file.append({"in": str(mscz_file), "out": str(mxml_file)})
 
-        cmd = run(
-            [
-                MUSESCORE_EXECUTABLE,
-                str(mscz_file),
-                "-o",
-                str(mxml_file),
-            ],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
+    with open(pack_path / "job.json", "w") as f_job:
+        json.dump(job_file, f_job, indent=4)
 
-        if cmd.returncode != 0:
-            _LOGGER.info("Output for Musescore: " + cmd.stderr)
-            raise ValueError("Return code for Musescore was not zero!")
+    cmd = run(
+        [
+            MUSESCORE_EXECUTABLE,
+            "-j",
+            str(pack_path / "job.json"),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if cmd.returncode != 0:
+        _LOGGER.info("Output for Musescore: " + cmd.stderr)
+        raise ValueError("Return code for Musescore was not zero!")
 
-        _LOGGER.debug("STDERR: " + cmd.stderr)
-        _LOGGER.debug("STDOUT: " + cmd.stdout)
+    _LOGGER.debug("STDERR: " + cmd.stderr)
+    _LOGGER.debug("STDOUT: " + cmd.stdout)
 
+    for converted in job_file:
+        mxml_file = Path(converted["out"])
+        svg_file = svg_folder / (mxml_file.stem + ".svg")
         add_identifiers(mxml_file)
 
         # Run Verovio to generate the SVGs accordingly
