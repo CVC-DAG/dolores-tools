@@ -10,6 +10,7 @@ from subprocess import run
 from typing import List, NamedTuple
 
 import numpy as np
+
 # import xml.etree.ElementTree as ET
 from lxml import etree
 from lxml.etree import _Element as Element
@@ -36,12 +37,14 @@ class Rectangle(NamedTuple):
 _LOGGER = logging.getLogger(__name__)
 
 MUSESCORE_EXECUTABLE = (
-    "/home/ptorras/AppImage/MuseScore-Studio-4.3.2.241630832-x86_64.AppImage"
+    # "/home/ptorras/AppImage/MuseScore-Studio-4.3.2.241630832-x86_64.AppImage",
+    "/Applications/MuseScore 4.app/Contents/MacOS/mscore"
     # "/home/pau/AppImage/MuseScore-Studio-4.3.2.241630832-x86_64.AppImage"
 )
 
 VEROVIO_EXECUTABLE = (
-    "/home/ptorras/Documents/Repos/verovio/cmake/cmake-build-debug/verovio"
+    # "/home/ptorras/Documents/Repos/verovio/cmake/cmake-build-debug/verovio",
+    "/Users/ptorras/Documents/Repos/verovio/cmake/verovio"
     # "/home/pau/repos/verovio/cmake/cmake-build-debug/verovio"
 )
 
@@ -422,6 +425,8 @@ def postprocess_svg(svg_file: Path) -> None:
     _identify_svg_tremolos(root)
     _identify_svg_flags(root)
     _identify_svg_tuplet_num(root)
+    _identify_svg_mrep(root)
+    _identify_svg_ending(root)
 
     etree.indent(tree, "    ")
     tree.write(svg_file)
@@ -667,6 +672,40 @@ def _identify_svg_noteheads(root: Element) -> None:
         )
         if notehead_node is not None:
             notehead_node.set("id", f"{note_node.get('id')}.notehead")
+
+
+def _identify_svg_mrep(root: Element) -> None:
+    """Provide an identifier to mrep objects in the SVG.
+
+    Parameters
+    ----------
+    root : ET.Element
+        Root SVG score element.
+    """
+    measure_nodes = root.xpath(".//svg:g[@class='measure']", namespaces=NAMESPACES)
+    for measure_node in measure_nodes:
+        measure_repeat = measure_node.find(
+            ".//svg:g[@class='mRpt']", namespaces=NAMESPACES
+        )
+        if measure_repeat is not None:
+            measure_repeat.set("id", f"{measure_node.get('id')}.measure_repeat")
+
+
+def _identify_svg_ending(root: Element) -> None:
+    """Provide an identifier to ending objects in the SVG.
+
+    Parameters
+    ----------
+    root : ET.Element
+        Root SVG score element.
+    """
+    ending_nodes = root.xpath(".//svg:g[@class='ending']", namespaces=NAMESPACES)
+    for ending_node in ending_nodes:
+        measure_repeat = ending_node.find(
+            ".//svg:g[@class='voltaBracket']", namespaces=NAMESPACES
+        )
+        if measure_repeat is not None:
+            measure_repeat.set("id", f"{ending_node.get('id')}.bracket")
 
 
 def _identify_svg_flags(root: Element) -> None:
