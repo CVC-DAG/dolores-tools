@@ -429,6 +429,7 @@ def postprocess_svg(svg_file: Path) -> None:
     _identify_svg_tremolos(root)
     _identify_svg_flags(root)
     _identify_svg_tuplet_num(root)
+    _identify_svg_tuplet_bracket(root)
     _identify_svg_mrep(root)
     _identify_svg_ending(root)
 
@@ -703,13 +704,15 @@ def _identify_svg_ending(root: Element) -> None:
     root : ET.Element
         Root SVG score element.
     """
-    ending_nodes = root.xpath(".//svg:g[@class='ending']", namespaces=NAMESPACES)
+    ending_nodes = root.xpath(
+        ".//svg:g[@class='ending systemMilestone']", namespaces=NAMESPACES
+    )
     for ending_node in ending_nodes:
-        measure_repeat = ending_node.find(
-            ".//svg:g[@class='voltaBracket']", namespaces=NAMESPACES
+        bracket = ending_node.find(
+            "./svg:g[@class='voltaBracket']", namespaces=NAMESPACES
         )
-        if measure_repeat is not None:
-            measure_repeat.set("id", f"{ending_node.get('id')}.bracket")
+        if bracket is not None:
+            bracket.set("id", f"{ending_node.get('id')}.bracket")
 
 
 def _identify_svg_flags(root: Element) -> None:
@@ -723,7 +726,7 @@ def _identify_svg_flags(root: Element) -> None:
     stem_nodes = root.findall(".//svg:g[@class='stem']", namespaces=NAMESPACES)
 
     for stem_node in stem_nodes:
-        flag_node = stem_node.find("./g[@class='flag']", namespaces=NAMESPACES)
+        flag_node = stem_node.find("./svg:g[@class='flag']", namespaces=NAMESPACES)
         if flag_node is not None:
             flag_node.set("id", f"{stem_node.get('id')}.flag")
 
@@ -744,6 +747,24 @@ def _identify_svg_tuplet_num(root: Element) -> None:
         )
         if number_node is not None:
             number_node.set("id", f"{tuplet_node.get('id')}.number")
+
+
+def _identify_svg_tuplet_bracket(root: Element) -> None:
+    """Provide an identifier to tuplet bracket objects in the SVG.
+
+    Parameters
+    ----------
+    root : ET.Element
+        Root SVG score element.
+
+    """
+    tuplet_nodes = root.findall(".//svg:g[@class='tuplet']", namespaces=NAMESPACES)
+    for tuplet_node in tuplet_nodes:
+        number_node = tuplet_node.find(
+            "./svg:g[@class='tupletBracket']", namespaces=NAMESPACES
+        )
+        if number_node is not None:
+            number_node.set("id", f"{tuplet_node.get('id')}.bracket")
 
 
 def setup() -> Namespace:
