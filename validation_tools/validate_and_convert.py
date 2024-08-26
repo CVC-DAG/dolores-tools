@@ -18,6 +18,7 @@ from lxml.etree import _Element as Element
 
 
 class Point(NamedTuple):
+    """Represents a point in a bounding box."""
     x: int
     y: int
 
