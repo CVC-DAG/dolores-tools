@@ -1,0 +1,4 @@
+lxml==5.2.1
+matplotlib==3.8.4
+numpy==2.1.0
+opencv_python_headless==4.10.0.84
