@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime
 import json
 import logging
 from argparse import ArgumentParser, Namespace
@@ -9,12 +10,12 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 import cv2
-import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib import colormaps
 from matplotlib.patches import Polygon, Rectangle
 
+# import matplotlib
 # matplotlib.use("tkagg")
 
 _LOGGER = logging.getLogger(__name__)
@@ -41,6 +42,7 @@ class Category(Enum):
     GLISSANDO = "glissando"
     HAYDN = "haydn"
     LEGATO = "legato"
+    MEASURE_REPEAT = "measure-repeat"
     MORDENT = "mordent"
     NOTEHEAD = "notehead"
     NUMBER = "number"
@@ -151,6 +153,13 @@ class ImageSlice:
             ann.scale(factor)
 
 
+@dataclass
+class ProjectMetadata:
+    date: datetime.datetime
+    version: str
+    contributor: str
+
+
 class DoloresProject:
     def __init__(self, path: Path, scale: Optional[float] = None) -> None:
         self.project_name = path.name
@@ -158,7 +167,7 @@ class DoloresProject:
 
         self.image = plt.imread(path / "images" / f"{self.project_name}.jpg")
 
-        self.id2slice, self.id2category = self._load_annotations(
+        self.id2slice, self.id2category, self.metadata = self._load_annotations(
             path / f"{self.project_name}_final.json"
         )
         if self.scale is not None:
@@ -183,9 +192,16 @@ class DoloresProject:
 
     def _load_annotations(
         self, ann_path: Path
-    ) -> Tuple[Dict[int, ImageSlice], Dict[int, Category]]:
+    ) -> Tuple[Dict[int, ImageSlice], Dict[int, Category], ProjectMetadata]:
         with open(ann_path, "r") as f_in:
             transcript = json.load(f_in)
+        metadata = ProjectMetadata(
+            datetime.datetime.strptime(
+                transcript["info"]["date_created"], "%b %d, %Y %I:%M:%S %p"
+            ),
+            transcript["info"]["version"],
+            transcript["info"]["contributor"],
+        )
 
         id2category = {x["id"]: Category(x["name"]) for x in transcript["categories"]}
         id2slice = {
@@ -212,7 +228,7 @@ class DoloresProject:
             ob_ann.offset(im_slice.bbox.tl)
             im_slice.anns.append(ob_ann)
 
-        return id2slice, id2category
+        return id2slice, id2category, metadata
 
     def plot(self) -> None:
         fig, ax = plt.subplots(dpi=80)

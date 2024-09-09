@@ -11,7 +11,6 @@ from subprocess import run
 from typing import List, NamedTuple
 
 import numpy as np
-
 # import xml.etree.ElementTree as ET
 from lxml import etree
 from lxml.etree import _Element as Element
@@ -19,6 +18,7 @@ from lxml.etree import _Element as Element
 
 class Point(NamedTuple):
     """Represents a point in a bounding box."""
+
     x: int
     y: int
 
@@ -39,14 +39,14 @@ class Rectangle(NamedTuple):
 _LOGGER = logging.getLogger(__name__)
 
 MUSESCORE_EXECUTABLE = (
-    # "/home/ptorras/AppImage/MuseScore-Studio-4.3.2.241630832-x86_64.AppImage",
-    "/Applications/MuseScore 4.app/Contents/MacOS/mscore"
+    "/home/ptorras/AppImage/MuseScore-Studio-4.3.2.241630832-x86_64.AppImage"
+    # "/Applications/MuseScore 4.app/Contents/MacOS/mscore"
     # "/home/pau/AppImage/MuseScore-Studio-4.3.2.241630832-x86_64.AppImage"
 )
 
 VEROVIO_EXECUTABLE = (
-    # "/home/ptorras/Documents/Repos/verovio/cmake/cmake-build-debug/verovio",
-    "/Users/ptorras/Documents/Repos/verovio/cmake/verovio"
+    "/home/ptorras/Documents/Repos/verovio/cmake/cmake-build-debug/verovio"
+    # "/Users/ptorras/Documents/Repos/verovio/cmake/verovio"
     # "/home/pau/repos/verovio/cmake/cmake-build-debug/verovio"
 )
 
@@ -205,7 +205,7 @@ def convert_pack(pack_path: Path, overwrite: bool) -> None:
         json.dump(job_file, f_job, indent=4)
 
     cmd = run(
-        [
+        args=[
             MUSESCORE_EXECUTABLE,
             "-j",
             str(pack_path / "job.json"),
@@ -228,7 +228,7 @@ def convert_pack(pack_path: Path, overwrite: bool) -> None:
 
         # Run Verovio to generate the SVGs accordingly
         cmd = run(
-            [
+            args=[
                 VEROVIO_EXECUTABLE,
                 # "-a",
                 "--adjust-page-height",
