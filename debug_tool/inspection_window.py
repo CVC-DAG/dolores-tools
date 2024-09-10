@@ -26,12 +26,14 @@ class InspectionWindow(tk.Toplevel):
         self.rowconfigure(1, weight=1)
 
         self.toolstrip = ttk.Frame(self, height=32, style="Frame3.TFrame")
-        self.app_area = ttk.PanedWindow(self, style="Frame0.TFrame")
+        self.app_area = ttk.PanedWindow(
+            self, style="Frame0.TFrame", orient=tk.HORIZONTAL
+        )
         self.toolstrip.grid(row=0, column=0, sticky="NWE")
         self.app_area.grid(row=1, column=0, sticky="NSWE")
 
         self.app_area.columnconfigure(0, weight=1)
-        self.app_area.columnconfigure(1, weight=3)
+        self.app_area.columnconfigure(1, weight=4)
         self.app_area.rowconfigure(0, weight=1)
 
         # LEFT PANE # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
@@ -41,6 +43,7 @@ class InspectionWindow(tk.Toplevel):
 
         self.left_pane = ttk.Frame(self.app_area, style="Frame1.TFrame")
         self.left_pane.grid(row=0, column=0, sticky="NSWE")
+        self.app_area.add(self.left_pane)
 
         self.left_pane.columnconfigure(0, weight=1)
         self.left_pane.rowconfigure(0, weight=1)
@@ -69,29 +72,45 @@ class InspectionWindow(tk.Toplevel):
         s_right = ttk.Style()
         s_right.configure("Frame2.TFrame", background="blue")
 
-        self.right_pane = ttk.Panedwindow(self.app_area, style="Frame2.TFrame")
+        self.right_pane = ttk.Panedwindow(
+            self.app_area, style="Frame2.TFrame", orient=tk.VERTICAL
+        )
         self.right_pane.grid(row=0, column=1, sticky="NSWE")
         self.right_pane.columnconfigure(0, weight=1)
-        self.right_pane.rowconfigure(0, weight=1)
-        self.right_pane.rowconfigure(2, weight=1)
+        self.app_area.add(self.right_pane)
 
-        self.insp_toolbar_frame = ttk.Frame(self.right_pane)
-        self.gt_toolbar_frame = ttk.Frame(self.right_pane)
+        self.topright_frame = ttk.Frame(self.right_pane)
+        self.botright_frame = ttk.Frame(self.right_pane)
+        self.topright_frame.grid(column=0, row=0, sticky="NSWE")
+        self.botright_frame.grid(column=0, row=1, sticky="NSWE")
+
+        self.right_pane.add(self.topright_frame)
+        self.right_pane.add(self.botright_frame)
+
+        self.insp_toolbar_frame = ttk.Frame(self.topright_frame)
+        self.gt_toolbar_frame = ttk.Frame(self.botright_frame)
 
         self.insp_figure = plt.figure()
-        self.insp_canvas = FigureCanvasTkAgg(self.insp_figure, master=self.right_pane)
+        self.insp_canvas = FigureCanvasTkAgg(
+            self.insp_figure, master=self.topright_frame
+        )
         self.insp_toolbar = NavigationToolbar2Tk(
             self.insp_canvas, self.insp_toolbar_frame
         )
 
         self.gt_figure = plt.figure()
-        self.gt_canvas = FigureCanvasTkAgg(self.gt_figure, master=self.right_pane)
+        self.gt_canvas = FigureCanvasTkAgg(self.gt_figure, master=self.botright_frame)
         self.gt_toolbar = NavigationToolbar2Tk(self.gt_canvas, self.gt_toolbar_frame)
 
         self.insp_canvas.get_tk_widget().grid(row=0, column=0, sticky="NSWE")
         self.insp_toolbar_frame.grid(row=1, column=0, sticky="WE")
-        self.gt_canvas.get_tk_widget().grid(row=2, column=0, sticky="NSWE")
-        self.gt_toolbar_frame.grid(row=3, column=0, sticky="WE")
+        self.gt_canvas.get_tk_widget().grid(row=0, column=0, sticky="NSWE")
+        self.gt_toolbar_frame.grid(row=1, column=0, sticky="WE")
+
+        self.topright_frame.columnconfigure(0, weight=1)
+        self.botright_frame.columnconfigure(0, weight=1)
+        self.topright_frame.rowconfigure(0, weight=1)
+        self.botright_frame.rowconfigure(0, weight=1)
 
     def _configure_inspector(self) -> None:
         # Display column names and guarantee they have enough width
