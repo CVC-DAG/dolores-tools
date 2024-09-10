@@ -13,22 +13,14 @@ class InspectionWindow(tk.Toplevel):
         super().__init__(root)
         self.project = project
 
-        s_main = ttk.Style()
-        s_main.configure("Frame0.TFrame", background="orange")
-
-        s_toolstrip = ttk.Style()
-        s_toolstrip.configure("Frame3.TFrame", background="yellow")
-
         self.title("DoLoReS Inspector")
         self.minsize(800, 600)
         self.columnconfigure(0, weight=1)
         self.rowconfigure(0, minsize=32)
         self.rowconfigure(1, weight=1)
 
-        self.toolstrip = ttk.Frame(self, height=32, style="Frame3.TFrame")
-        self.app_area = ttk.PanedWindow(
-            self, style="Frame0.TFrame", orient=tk.HORIZONTAL
-        )
+        self.toolstrip = ttk.Frame(self, height=32)
+        self.app_area = ttk.PanedWindow(self, orient=tk.HORIZONTAL)
         self.toolstrip.grid(row=0, column=0, sticky="NWE")
         self.app_area.grid(row=1, column=0, sticky="NSWE")
 
@@ -41,7 +33,7 @@ class InspectionWindow(tk.Toplevel):
         s_left = ttk.Style()
         s_left.configure("Frame1.TFrame", background="red")
 
-        self.left_pane = ttk.Frame(self.app_area, style="Frame1.TFrame")
+        self.left_pane = ttk.Frame(self.app_area)
         self.left_pane.grid(row=0, column=0, sticky="NSWE")
         self.app_area.add(self.left_pane)
 
@@ -69,12 +61,7 @@ class InspectionWindow(tk.Toplevel):
 
         # RIGHT PANE  # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-        s_right = ttk.Style()
-        s_right.configure("Frame2.TFrame", background="blue")
-
-        self.right_pane = ttk.Panedwindow(
-            self.app_area, style="Frame2.TFrame", orient=tk.VERTICAL
-        )
+        self.right_pane = ttk.Panedwindow(self.app_area, orient=tk.VERTICAL)
         self.right_pane.grid(row=0, column=1, sticky="NSWE")
         self.right_pane.columnconfigure(0, weight=1)
         self.app_area.add(self.right_pane)
