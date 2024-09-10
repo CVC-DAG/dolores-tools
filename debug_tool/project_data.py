@@ -41,7 +41,8 @@ class Category(Enum):
     GLISSANDO = "glissando"
     HAYDN = "haydn"
     LEGATO = "legato"
-    MEASURE_REPEAT = "measure-repeat"
+    MEASURE_REPEAT_OLD = "measure-repeat"  # To keep compatibility with 1.2.1
+    MEASURE_REPEAT = "measure_repeat"
     MORDENT = "mordent"
     NOTEHEAD = "notehead"
     NUMBER = "number"
@@ -101,6 +102,12 @@ class BoundingBox:
     tl: Point
     br: Point
 
+    def __str__(self) -> str:
+        return f"TL: {self.tl.x}, {self.tl.y} BR: {self.br.x}, {self.br.y}"
+
+    def __repr__(self) -> str:
+        return str(self)
+
     @property
     def width(self) -> int:
         return self.br.x - self.tl.x
@@ -143,8 +150,10 @@ class Annotation:
 
 @dataclass
 class ImageSlice:
+    slice_idx: int
     bbox: BoundingBox
     anns: List[Annotation]
+    gt_file: Optional[Path]
 
     def scale(self, factor: float) -> None:
         self.bbox.scale(factor)
@@ -220,8 +229,18 @@ class DoloresProject:
                 transcript["info"]["contributor"],
             )
         except ValueError as e:
-            _LOGGER.warning(f"Metadata parsing failed for {ann_path}: {e}")
-            raise
+            try:
+                metadata = ProjectMetadata(
+                    self.project_name,
+                    datetime.datetime.strptime(
+                        transcript["info"]["date_created"], "%b %d, %Y %H:%M:%S"
+                    ),
+                    transcript["info"]["version"],
+                    transcript["info"]["contributor"],
+                )
+            except ValueError as e:
+                _LOGGER.warning(f"Metadata parsing failed for {ann_path}: {e}")
+                raise
 
         # Load the categories within the file
         try:
@@ -236,14 +255,24 @@ class DoloresProject:
         # Load image slices
         id2slice = {
             x["id"]: ImageSlice(
+                int(x["id"]),
                 BoundingBox(
                     Point(x["originX"], x["originY"]),
                     Point(x["originX"] + x["width"], x["originY"] + x["height"]),
                 ),
                 [],
+                self.project_path
+                / "files"
+                / f"{self.project_name}.{int(x['id']):02}.svg",
             )
             for x in transcript["images"]
         }
+        for v in id2slice.values():
+            if v.gt_file is not None and not v.gt_file.exists():
+                v.gt_file = None
+                _LOGGER.warning(
+                    f"Ground truth slice {v.slice_idx} for project {self.project_name}"
+                )
 
         # Load annotations
         for ann in transcript["annotations"]:

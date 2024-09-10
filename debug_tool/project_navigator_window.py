@@ -2,9 +2,10 @@ import logging
 import shutil
 import tkinter as tk
 from subprocess import run
-from tkinter import ttk
+from tkinter import Message, ttk
 from typing import List, Optional
 
+from inspection_window import InspectionWindow
 from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg,
                                                NavigationToolbar2Tk)
 from matplotlib.pyplot import text
@@ -74,26 +75,35 @@ class ProjectNavigatorWindow:
         style.configure("Treeview.Heading", font=("Arial", 14, "bold"))
 
     def _configure_toolstrip(self) -> None:
+        bn_inspect = ttk.Button(
+            self.toolstrip,
+            text="Inspect",
+            command=self.command_inspect,
+        )
+        bn_inspect.grid(column=0, row=1, sticky="NW")
+
         bn_open_ed = ttk.Button(
             self.toolstrip,
             text="Open in editor",
             command=self.command_open_in_editor,
         )
-        bn_open_ed.grid(column=0, row=1, sticky="NW")
+        bn_open_ed.grid(column=1, row=1, sticky="NW")
 
         bn_show_plot = ttk.Button(
             self.toolstrip,
             text="Show Plot",
             command=self.command_show_plot,
         )
-        bn_show_plot.grid(column=1, row=1, sticky="NW")
+        bn_show_plot.grid(column=2, row=1, sticky="NW")
+
+        self.toolstrip.columnconfigure(3, weight=1)
 
         bn_delete = ttk.Button(
             self.toolstrip,
             text="Delete",
             command=self.command_delete_projects,
         )
-        bn_delete.grid(column=2, row=1, sticky="NE")
+        bn_delete.grid(column=4, row=1, sticky="NE")
 
     def update_project_data(self, data: List[DoloresProject]) -> None:
         for ii, project in enumerate(data):
@@ -109,6 +119,30 @@ class ProjectNavigatorWindow:
                     "yes" if project.fully_loaded else "no",
                 ),
             )
+
+    def command_inspect(self) -> None:
+        index = self.treeview.selection()
+
+        if len(index) > 1:
+            tk.messagebox.showinfo(
+                title="Error", message="Select only one project to proceed"
+            )
+            return None
+
+        if len(index) == 0:
+            tk.messagebox.showinfo(
+                title="Error", message="Select at least one project to proceed"
+            )
+            return None
+        if len(index) == 1:
+            selected = index[0]
+            project = self.data[int(selected)]
+            if not project.fully_loaded:
+                tk.messagebox.showinfo(
+                    title="Error", message="This project cannot be loaded."
+                )
+                return None
+            window = InspectionWindow(self.root, project)
 
     def command_open_in_editor(self) -> None:
         index = self.treeview.selection()
@@ -133,10 +167,14 @@ class ProjectNavigatorWindow:
         )
 
         if answer:
+            elements_to_remove = []
             for ii in index:
                 shutil.rmtree(self.data[int(ii)].project_path)
-                del self.data[int(ii)]
                 self.treeview.delete(ii)
+                elements_to_remove.append(self.data[int(ii)])
+
+            for torm in elements_to_remove:
+                self.data.remove(torm)
 
     def _sort_data_by(self, column: str, reverse: bool) -> None:
         data_list = [

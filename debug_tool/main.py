@@ -27,7 +27,7 @@ class DebugToolApplication:
         for user_folder in [x for x in path.glob("*") if x.is_dir()]:
             for project in [x for x in user_folder.glob("*") if x.is_dir()]:
                 try:
-                    output.append(DoloresProject(project, 0.25))
+                    output.append(DoloresProject(project))
                 except ValueError as e:
                     _LOGGER.warning(f"Could not load {str(project)}: {e}")
                 except FileNotFoundError as e:
