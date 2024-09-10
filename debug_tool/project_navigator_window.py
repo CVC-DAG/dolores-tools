@@ -17,6 +17,7 @@ _LOGGER = logging.getLogger(__name__)
 class ProjectNavigatorWindow:
     def __init__(self, root: tk.Tk, data: List[DoloresProject]) -> None:
         self.root = root
+        self.root.protocol("WM_DELETE_WINDOW", self.on_navigator_close)
         self.data = data
 
         self.frame = ttk.Frame(self.root)
@@ -45,7 +46,7 @@ class ProjectNavigatorWindow:
         self.treeview.grid(column=0, row=0, sticky="NSEW")
         self.scrollbar.grid(column=1, row=1, sticky="NSEW")
 
-        self.inspections = {}
+        self.inspections = []
 
     def _configure_treeview(self) -> None:
         # Display column names and guarantee they have enough width
@@ -140,7 +141,7 @@ class ProjectNavigatorWindow:
             selected = index[0]
             project = self.data[int(selected)]
 
-            if project in self.inspections:
+            if selected in self.inspections:
                 tk.messagebox.showinfo(
                     title="Error", message="This project is already open"
                 )
@@ -153,9 +154,9 @@ class ProjectNavigatorWindow:
                 return None
 
             window = InspectionWindow(self.root, project)
-            self.inspections[project] = window
-            window.window.protocol(
-                "WM_DELETE_WINDOW", lambda: self.close_inspection(project, window)
+            self.inspections.append(selected)
+            window.protocol(
+                "WM_DELETE_WINDOW", lambda: self.close_inspection(selected, window)
             )
 
     def command_open_in_editor(self) -> None:
@@ -191,12 +192,18 @@ class ProjectNavigatorWindow:
             for torm in elements_to_remove:
                 self.data.remove(torm)
 
-    def close_inspection(
-        self, project: DoloresProject, window: InspectionWindow
-    ) -> None:
-        window.window.destroy()
+    def close_inspection(self, project: str, window: InspectionWindow) -> None:
+        window.destroy()
         if project in self.inspections:
-            del self.inspections[project]
+            self.inspections.remove(project)
+
+        if not self.root.winfo_exists():
+            self.root.quit()  # Ensure the main loop stops if no windows are open
+
+    def on_navigator_close(self) -> None:
+        if tk.messagebox.askokcancel("Quit", "Do you want to quit?"):
+            self.root.destroy()
+            self.root.quit()
 
     def _sort_data_by(self, column: str, reverse: bool) -> None:
         data_list = [

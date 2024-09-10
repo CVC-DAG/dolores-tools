@@ -8,12 +8,10 @@ from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg,
 from project_data import DoloresProject
 
 
-class InspectionWindow:
+class InspectionWindow(tk.Toplevel):
     def __init__(self, root: tk.Tk, project: DoloresProject) -> None:
+        super().__init__(root)
         self.project = project
-
-        self.root = root
-        self.window = tk.Toplevel(self.root)
 
         s_main = ttk.Style()
         s_main.configure("Frame0.TFrame", background="orange")
@@ -21,14 +19,14 @@ class InspectionWindow:
         s_toolstrip = ttk.Style()
         s_toolstrip.configure("Frame3.TFrame", background="yellow")
 
-        self.window.title("DoLoReS Inspector")
-        self.window.minsize(800, 600)
-        self.window.columnconfigure(0, weight=1)
-        self.window.rowconfigure(0, minsize=32)
-        self.window.rowconfigure(1, weight=1)
+        self.title("DoLoReS Inspector")
+        self.minsize(800, 600)
+        self.columnconfigure(0, weight=1)
+        self.rowconfigure(0, minsize=32)
+        self.rowconfigure(1, weight=1)
 
-        self.toolstrip = ttk.Frame(self.window, height=32, style="Frame3.TFrame")
-        self.app_area = ttk.PanedWindow(self.window, style="Frame0.TFrame")
+        self.toolstrip = ttk.Frame(self, height=32, style="Frame3.TFrame")
+        self.app_area = ttk.PanedWindow(self, style="Frame0.TFrame")
         self.toolstrip.grid(row=0, column=0, sticky="NWE")
         self.app_area.grid(row=1, column=0, sticky="NSWE")
 
