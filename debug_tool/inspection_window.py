@@ -225,6 +225,11 @@ class InspectionWindow(tk.Toplevel):
 
     def on_image_selector_change(self, event: tk.Event) -> None:
         selected = self.gt_selector.get()
+        if selected == "None":
+            self.plotted_gt_image.set_data(np.full((50, 50), 1.0))
+            self.gt_figure.canvas.draw()
+            return None
+
         img_slice = self.project.id2slice[int(selected)]
         if img_slice.gt_file is not None:
             with open(img_slice.gt_file, "r") as f_in:
