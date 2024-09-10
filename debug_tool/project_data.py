@@ -123,9 +123,8 @@ class BoundingBox:
         self.tl += point
         self.br += point
 
-    def scale(self, factor: float) -> None:
-        self.tl *= factor
-        self.br *= factor
+    def scale(self, factor: float) -> BoundingBox:
+        return BoundingBox(self.tl * factor, self.br * factor)
 
 
 @dataclass
@@ -143,9 +142,13 @@ class Annotation:
         self.bbox.offset(point)
         self.poly = list(map(lambda x: x + point, self.poly))
 
-    def scale(self, factor: float) -> None:
-        self.bbox.scale(factor)
-        self.poly = list(map(lambda x: x * factor, self.poly))
+    def scale(self, factor: float) -> Annotation:
+        return Annotation(
+            self.bbox.scale(factor),
+            list(map(lambda x: x * factor, self.poly)),
+            self.ident,
+            self.category,
+        )
 
 
 @dataclass
@@ -155,10 +158,13 @@ class ImageSlice:
     anns: List[Annotation]
     gt_file: Optional[Path]
 
-    def scale(self, factor: float) -> None:
-        self.bbox.scale(factor)
-        for ann in self.anns:
-            ann.scale(factor)
+    def scale(self, factor: float) -> ImageSlice:
+        return ImageSlice(
+            slice_idx=self.slice_idx,
+            bbox=self.bbox.scale(factor),
+            anns=list(map(lambda x: x.scale(factor), self.anns)),
+            gt_file=self.gt_file,
+        )
 
 
 @dataclass
@@ -170,7 +176,7 @@ class ProjectMetadata:
 
 
 class DoloresProject:
-    def __init__(self, path: Path, scale: Optional[float] = None) -> None:
+    def __init__(self, path: Path) -> None:
         self.fully_loaded: bool = False
 
         self.project_path = path
@@ -181,8 +187,6 @@ class DoloresProject:
         if not self.project_path.exists():
             raise FileNotFoundError("The path to the project does not exist")
 
-        self.scale = scale
-
         self.id2slice, self.id2category, self.metadata = self._load_annotations(
             self.project_file
         )
@@ -191,9 +195,6 @@ class DoloresProject:
             _LOGGER.warning("Path to project image not found")
             self.fully_loaded = False
 
-        if self.scale is not None:
-            for imslice in self.id2slice.values():
-                imslice.scale(self.scale)
         self.category2id = {v: k for k, v in self.id2category.items()}
         self.category_cmap = colormaps["gist_rainbow"]
 
@@ -291,22 +292,37 @@ class DoloresProject:
         self.fully_loaded = True
         return id2slice, id2category, metadata
 
-    def plot(self) -> None:
+    def plot(
+        self,
+        annotations: Dict[int, ImageSlice],
+        img_path: Path,
+        scale: float = 1.0,
+    ) -> None:
         fig, ax = plt.subplots(dpi=80)
 
-        loaded_image = plt.imread(self.image_path)
-        if self.scale is not None:
-            og_height, og_width, _ = loaded_image.shape
-            loaded_image = cv2.resize(
-                loaded_image,
-                dsize=(int(og_width * self.scale), int(og_height * self.scale)),
-            )
+        # Remove extra space around the plot
+        plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
+
+        # Make the figure occupy the entire window
+        figManager = plt.get_current_fig_manager()
+        figManager.window.state("iconic")
+
+        loaded_image = plt.imread(img_path)
+
+        annotations = {
+            ident: imslice.scale(scale) for ident, imslice in annotations.items()
+        }
+        og_height, og_width, _ = loaded_image.shape
+        loaded_image = cv2.resize(
+            loaded_image,
+            dsize=(int(og_width * scale), int(og_height * scale)),
+        )
 
         ax.imshow(loaded_image)
         ax.set_xticks([])
         ax.set_yticks([])
 
-        for ii, (slice_id, slice_ob) in enumerate(self.id2slice.items()):
+        for ii, (_, slice_ob) in enumerate(annotations.items()):
             slice_bbox = slice_ob.bbox.get_patch()
             slice_bbox.set(
                 color="orange" if ii % 2 == 0 else "red",

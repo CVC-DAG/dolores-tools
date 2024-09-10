@@ -45,6 +45,8 @@ class ProjectNavigatorWindow:
         self.treeview.grid(column=0, row=0, sticky="NSEW")
         self.scrollbar.grid(column=1, row=1, sticky="NSEW")
 
+        self.inspections = {}
+
     def _configure_treeview(self) -> None:
         # Display column names and guarantee they have enough width
         self.treeview.heading("#0", text="Project Name")
@@ -137,12 +139,24 @@ class ProjectNavigatorWindow:
         if len(index) == 1:
             selected = index[0]
             project = self.data[int(selected)]
+
+            if project in self.inspections:
+                tk.messagebox.showinfo(
+                    title="Error", message="This project is already open"
+                )
+                return None
+
             if not project.fully_loaded:
                 tk.messagebox.showinfo(
                     title="Error", message="This project cannot be loaded."
                 )
                 return None
+
             window = InspectionWindow(self.root, project)
+            self.inspections[project] = window
+            window.window.protocol(
+                "WM_DELETE_WINDOW", lambda: self.close_inspection(project, window)
+            )
 
     def command_open_in_editor(self) -> None:
         index = self.treeview.selection()
@@ -152,8 +166,9 @@ class ProjectNavigatorWindow:
     def command_show_plot(self) -> None:
         index = self.treeview.selection()
         for ii in map(int, index):
-            if self.data[ii].fully_loaded:
-                self.data[ii].plot()
+            project = self.data[ii]
+            if project.fully_loaded:
+                project.plot(project.id2slice, project.image_path, 0.2)
 
     def command_delete_projects(self) -> None:
         index = self.treeview.selection()
@@ -175,6 +190,13 @@ class ProjectNavigatorWindow:
 
             for torm in elements_to_remove:
                 self.data.remove(torm)
+
+    def close_inspection(
+        self, project: DoloresProject, window: InspectionWindow
+    ) -> None:
+        window.window.destroy()
+        if project in self.inspections:
+            del self.inspections[project]
 
     def _sort_data_by(self, column: str, reverse: bool) -> None:
         data_list = [
