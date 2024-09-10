@@ -1,10 +1,16 @@
 import tkinter as tk
+from io import BytesIO
 from tkinter import ttk
 
+import cairosvg
+import cv2
 import matplotlib.pyplot as plt
+import numpy as np
 from matplotlib.backend_bases import key_press_handler
 from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg,
                                                NavigationToolbar2Tk)
+from matplotlib.collections import PatchCollection
+from PIL import Image
 from project_data import DoloresProject
 
 
@@ -12,6 +18,8 @@ class InspectionWindow(tk.Toplevel):
     def __init__(self, root: tk.Tk, project: DoloresProject) -> None:
         super().__init__(root)
         self.project = project
+        self.objects_to_draw = {}
+        self.object_scale = 0.25
 
         self.title("DoLoReS Inspector")
         self.minsize(800, 600)
@@ -42,6 +50,7 @@ class InspectionWindow(tk.Toplevel):
         self.left_pane.rowconfigure(1)
 
         self.inspector = ttk.Treeview(self.left_pane, columns=("class", "id", "bbox"))
+        self.inspector.bind("<<TreeviewSelect>>", self.on_inspector_selection_change)
         self.inspector.grid(row=0, column=0, sticky="NSWE")
 
         self.insp_y_scrollbar = ttk.Scrollbar(
@@ -57,7 +66,7 @@ class InspectionWindow(tk.Toplevel):
         self.insp_x_scrollbar.grid(column=0, row=1, sticky="SWE")
 
         self._configure_inspector()
-        self.insert_inspector_data(self.project)
+        self.insert_inspector_data(self.project)  # MUST BE RUN BEFORE PLOTTING!
 
         # RIGHT PANE  # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
@@ -93,7 +102,8 @@ class InspectionWindow(tk.Toplevel):
             self.gt_toolbar_frame,
             text="Transcript Image: ",
         )
-        self.gt_selector = ttk.Combobox(self.gt_toolbar_frame)
+        self.gt_selector = ttk.Combobox(self.gt_toolbar_frame, state="readonly")
+        self.gt_selector.bind("<<ComboboxSelected>>", self.on_image_selector_change)
         self._configure_selector()
 
         self.insp_canvas.get_tk_widget().grid(row=0, column=0, sticky="NSWE")
@@ -117,6 +127,33 @@ class InspectionWindow(tk.Toplevel):
         self.gt_toolbar_frame.rowconfigure(0, weight=1)
         self.insp_toolbar_frame.rowconfigure(0, weight=1)
 
+        # INSP FIGURE # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+        ax = self.insp_figure.add_axes((0, 0, 1, 1))
+        ax.set_axis_off()
+        loaded_image = plt.imread(self.project.image_path)
+        og_height, og_width, _ = loaded_image.shape
+        loaded_image = cv2.resize(
+            loaded_image,
+            dsize=(
+                int(og_width * self.object_scale),
+                int(og_height * self.object_scale),
+            ),
+        )
+        self.plotted_insp_image = ax.imshow(loaded_image)
+
+        self.drawn_objects = {}
+        for obj_id, obj in self.objects_to_draw.items():
+            obj.set(fill=False, visible=False)
+            ax.add_patch(obj)
+            self.drawn_objects[obj_id] = obj
+
+        # GT FIGURE # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+        ax = self.gt_figure.add_axes((0, 0, 1, 1))
+        ax.set_axis_off()
+        self.plotted_gt_image = ax.imshow(np.full((50, 50), 1.0))
+
     def _configure_inspector(self) -> None:
         # Display column names and guarantee they have enough width
         self.inspector.heading("#0", text="Element")
@@ -133,12 +170,22 @@ class InspectionWindow(tk.Toplevel):
             command=lambda: self._sort_data_by("bbox", False),
         )
 
-    def _configure_selector(self) -> None: ...
+    def _configure_selector(self) -> None:
+        elements = []
+        for ii, img_slice in self.project.id2slice.items():
+            if img_slice.gt_file is not None:
+                elements.append(ii)
+
+        self.gt_selector["values"] = (*elements, "None")
+        self.gt_selector.current(len(self.gt_selector["values"]) - 1)
 
     def _sort_data_by(self, column: str, reverse: bool) -> None: ...
 
     def insert_inspector_data(self, data: DoloresProject) -> None:
+        self.objects_to_draw = {}
         for slice_id, slice_data in data.id2slice.items():
+            scaled_data = slice_data.scale(self.object_scale)
+
             node_id = f"slice{slice_id}"
             self.inspector.insert(
                 "",
@@ -148,11 +195,19 @@ class InspectionWindow(tk.Toplevel):
                 values=(
                     "Music Line",
                     slice_id,
-                    slice_data.bbox,
+                    scaled_data.bbox,
                 ),
             )
+            slice_bbox = scaled_data.bbox.get_patch()
+            slice_bbox.set(
+                color="orange" if slice_id % 2 == 0 else "red",
+                alpha=0.25,
+                fill=True,
+                hatch="//",
+            )
+            self.objects_to_draw[node_id] = slice_bbox
 
-            for ii, ann in enumerate(slice_data.anns):
+            for ii, ann in enumerate(scaled_data.anns):
                 self.inspector.insert(
                     node_id,
                     "end",
@@ -164,3 +219,27 @@ class InspectionWindow(tk.Toplevel):
                         ann.bbox,
                     ),
                 )
+                patch = ann.get_poly_patch()
+                patch.set_color(ann.category.get_category_color())
+                self.objects_to_draw[f"{node_id}.annotation{ii}"] = patch
+
+    def on_image_selector_change(self, event: tk.Event) -> None:
+        selected = self.gt_selector.get()
+        img_slice = self.project.id2slice[int(selected)]
+        if img_slice.gt_file is not None:
+            with open(img_slice.gt_file, "r") as f_in:
+                img_png = cairosvg.svg2png(f_in.read())
+            loaded_img = Image.open(BytesIO(img_png))
+            self.plotted_gt_image.set_data(np.asarray(loaded_img))
+            self.gt_figure.canvas.draw()
+
+    def on_inspector_selection_change(self, event: tk.Event) -> None:
+        selection = self.inspector.selection()
+
+        for obj in self.drawn_objects.values():
+            obj.set_visible(False)
+
+        for selected in selection:
+            self.drawn_objects[selected].set_visible(True)
+
+        self.insp_figure.canvas.draw()

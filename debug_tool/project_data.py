@@ -69,6 +69,12 @@ class Category(Enum):
     WAVY_LINE = "wavy_line"
     WEDGE = "wedge"
 
+    def get_category_color(self):
+        max_category = len(Category)
+        cur_category = list(Category).index(self)
+
+        return colormaps["gist_rainbow"](cur_category * (1 / max_category))
+
 
 @dataclass
 class Point:
