@@ -89,6 +89,13 @@ class InspectionWindow(tk.Toplevel):
         self.gt_canvas = FigureCanvasTkAgg(self.gt_figure, master=self.botright_frame)
         self.gt_toolbar = NavigationToolbar2Tk(self.gt_canvas, self.gt_toolbar_frame)
 
+        self.gt_selector_label = ttk.Label(
+            self.gt_toolbar_frame,
+            text="Transcript Image: ",
+        )
+        self.gt_selector = ttk.Combobox(self.gt_toolbar_frame)
+        self._configure_selector()
+
         self.insp_canvas.get_tk_widget().grid(row=0, column=0, sticky="NSWE")
         self.insp_toolbar_frame.grid(row=1, column=0, sticky="WE")
         self.gt_canvas.get_tk_widget().grid(row=0, column=0, sticky="NSWE")
@@ -98,6 +105,17 @@ class InspectionWindow(tk.Toplevel):
         self.botright_frame.columnconfigure(0, weight=1)
         self.topright_frame.rowconfigure(0, weight=1)
         self.botright_frame.rowconfigure(0, weight=1)
+
+        self.insp_toolbar.grid(row=0, column=0, sticky="W")
+
+        self.gt_toolbar.grid(row=0, column=0, sticky="W")
+        self.gt_selector_label.grid(row=0, column=1, sticky="W")
+        self.gt_selector.grid(row=0, column=2, sticky="W")
+
+        self.gt_toolbar_frame.columnconfigure(0, weight=1)
+        self.insp_toolbar_frame.columnconfigure(0, weight=1)
+        self.gt_toolbar_frame.rowconfigure(0, weight=1)
+        self.insp_toolbar_frame.rowconfigure(0, weight=1)
 
     def _configure_inspector(self) -> None:
         # Display column names and guarantee they have enough width
@@ -114,6 +132,8 @@ class InspectionWindow(tk.Toplevel):
             text="Bounding Box",
             command=lambda: self._sort_data_by("bbox", False),
         )
+
+    def _configure_selector(self) -> None: ...
 
     def _sort_data_by(self, column: str, reverse: bool) -> None: ...
 

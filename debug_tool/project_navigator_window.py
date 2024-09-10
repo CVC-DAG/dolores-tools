@@ -1,8 +1,9 @@
 import logging
 import shutil
 import tkinter as tk
+from pathlib import Path
 from subprocess import run
-from tkinter import Message, ttk
+from tkinter import Message, PhotoImage, ttk
 from typing import List, Optional
 
 from inspection_window import InspectionWindow
@@ -22,6 +23,23 @@ class ProjectNavigatorWindow:
 
         self.frame = ttk.Frame(self.root)
         self.toolstrip = ttk.Frame(self.root, height=32)
+        self.icons = {
+            "inspect": tk.PhotoImage(
+                file=str(Path(__file__).parent / "icons" / "inspector.png")
+            ),
+            "filter": tk.PhotoImage(
+                file=str(Path(__file__).parent / "icons" / "magnifier.png")
+            ),
+            "plot": tk.PhotoImage(
+                file=str(Path(__file__).parent / "icons" / "plot.png")
+            ),
+            "remove": tk.PhotoImage(
+                file=str(Path(__file__).parent / "icons" / "close.png")
+            ),
+            "text_editor": tk.PhotoImage(
+                file=str(Path(__file__).parent / "icons" / "text_editor.png")
+            ),
+        }
         self._configure_toolstrip()
 
         self.treeview = ttk.Treeview(
@@ -78,35 +96,61 @@ class ProjectNavigatorWindow:
         style.configure("Treeview.Heading", font=("Arial", 14, "bold"))
 
     def _configure_toolstrip(self) -> None:
-        bn_inspect = ttk.Button(
-            self.toolstrip,
-            text="Inspect",
-            command=self.command_inspect,
+        buttons = []
+        buttons.append(
+            ttk.Button(
+                self.toolstrip,
+                text="Inspect",
+                image=self.icons["inspect"],
+                command=self.command_inspect,
+                width=32,
+            )
         )
-        bn_inspect.grid(column=0, row=1, sticky="NW")
 
-        bn_open_ed = ttk.Button(
-            self.toolstrip,
-            text="Open in editor",
-            command=self.command_open_in_editor,
+        buttons.append(
+            ttk.Button(
+                self.toolstrip,
+                text="Filter",
+                image=self.icons["filter"],
+                command=self.command_filter,
+                width=32,
+            )
         )
-        bn_open_ed.grid(column=1, row=1, sticky="NW")
 
-        bn_show_plot = ttk.Button(
-            self.toolstrip,
-            text="Show Plot",
-            command=self.command_show_plot,
+        buttons.append(
+            ttk.Button(
+                self.toolstrip,
+                text="Open on Editor",
+                image=self.icons["text_editor"],
+                command=self.command_open_in_editor,
+                width=32,
+            )
         )
-        bn_show_plot.grid(column=2, row=1, sticky="NW")
 
-        self.toolstrip.columnconfigure(3, weight=1)
-
-        bn_delete = ttk.Button(
-            self.toolstrip,
-            text="Delete",
-            command=self.command_delete_projects,
+        buttons.append(
+            ttk.Button(
+                self.toolstrip,
+                text="Show Plot",
+                image=self.icons["plot"],
+                command=self.command_show_plot,
+                width=32,
+            )
         )
-        bn_delete.grid(column=4, row=1, sticky="NE")
+
+        buttons.append(
+            ttk.Button(
+                self.toolstrip,
+                text="Remove",
+                image=self.icons["remove"],
+                command=self.command_delete_projects,
+                width=32,
+            )
+        )
+
+        for ii, button in enumerate(buttons):
+            button.grid(column=ii, row=1, sticky="NE")
+
+        self.toolstrip.columnconfigure(len(buttons), weight=1)
 
     def update_project_data(self, data: List[DoloresProject]) -> None:
         for ii, project in enumerate(data):
@@ -158,6 +202,9 @@ class ProjectNavigatorWindow:
             window.protocol(
                 "WM_DELETE_WINDOW", lambda: self.close_inspection(selected, window)
             )
+
+    def command_filter(self) -> None:
+        tk.messagebox.showinfo(title="Error", message="Not developed yet :c")
 
     def command_open_in_editor(self) -> None:
         index = self.treeview.selection()
