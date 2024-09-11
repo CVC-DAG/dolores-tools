@@ -11,6 +11,7 @@ from subprocess import run
 from typing import List, NamedTuple
 
 import numpy as np
+
 # import xml.etree.ElementTree as ET
 from lxml import etree
 from lxml.etree import _Element as Element
@@ -39,14 +40,14 @@ class Rectangle(NamedTuple):
 _LOGGER = logging.getLogger(__name__)
 
 MUSESCORE_EXECUTABLE = (
-    "/home/ptorras/AppImage/MuseScore-Studio-4.3.2.241630832-x86_64.AppImage"
-    # "/Applications/MuseScore 4.app/Contents/MacOS/mscore"
+    # "/home/ptorras/AppImage/MuseScore-Studio-4.3.2.241630832-x86_64.AppImage"
+    "/Applications/MuseScore 4.app/Contents/MacOS/mscore"
     # "/home/pau/AppImage/MuseScore-Studio-4.3.2.241630832-x86_64.AppImage"
 )
 
 VEROVIO_EXECUTABLE = (
-    "/home/ptorras/Documents/Repos/verovio/cmake/cmake-build-debug/verovio"
-    # "/Users/ptorras/Documents/Repos/verovio/cmake/verovio"
+    # "/home/ptorras/Documents/Repos/verovio/cmake/cmake-build-debug/verovio"
+    "/Users/ptorras/Documents/Repos/verovio/cmake/verovio"
     # "/home/pau/repos/verovio/cmake/cmake-build-debug/verovio"
 )
 
@@ -156,6 +157,10 @@ def main(args: Namespace) -> None:
     output_path = args.set_path.parent / f"{args.set_path.name}_CLEAN"
     output_path.mkdir(exist_ok=True, parents=False)
     for pack_path in args.set_path.glob("*"):
+        if pack_path.name[0] == ".":
+            _LOGGER.info(f"Skipping hidden folder {pack_path.name}...")
+            continue
+
         _LOGGER.info(f"Processing {pack_path}...")
         clean_pack_path = output_path / pack_path.name
         clean_pack_path.mkdir(exist_ok=True, parents=False)
@@ -233,6 +238,8 @@ def convert_pack(pack_path: Path, overwrite: bool) -> None:
                 # "-a",
                 "--adjust-page-height",
                 "--adjust-page-width",
+                "--breaks",
+                "none",
                 "--page-margin-bottom",
                 "0",
                 "--page-margin-left",
