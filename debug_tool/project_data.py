@@ -63,6 +63,8 @@ class Category(Enum):
     TENUTO = "tenuto"
     TIE = "tie"
     TIMESIG = "timesig"
+    TREMOLO_LINE = "tremolo_line"
+    TREMOLO_BEAM = "tremolo_beam"
     TRILL = "trill"
     TUPLET = "tuplet"
     TURN = "turn"
