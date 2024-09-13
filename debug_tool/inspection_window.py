@@ -73,6 +73,8 @@ class InspectionWindow(tk.Toplevel):
         self.right_pane = ttk.Panedwindow(self.app_area, orient=tk.VERTICAL)
         self.right_pane.grid(row=0, column=1, sticky="NSWE")
         self.right_pane.columnconfigure(0, weight=1)
+        self.right_pane.rowconfigure(0, weight=3)
+        self.right_pane.rowconfigure(1, weight=1)
         self.app_area.add(self.right_pane)
 
         self.topright_frame = ttk.Frame(self.right_pane)
@@ -148,11 +150,13 @@ class InspectionWindow(tk.Toplevel):
             ax.add_patch(obj)
             self.drawn_objects[obj_id] = obj
 
+        plt.close(self.insp_figure)
+
         # GT FIGURE # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-        ax = self.gt_figure.add_axes((0, 0, 1, 1))
-        ax.set_axis_off()
-        self.plotted_gt_image = ax.imshow(np.full((50, 50), 1.0))
+        self.gt_figure_ax = self.gt_figure.add_axes((0, 0, 1, 1))
+        self.gt_figure_ax.set_axis_off()
+        plt.close(self.gt_figure)
 
     def _configure_inspector(self) -> None:
         # Display column names and guarantee they have enough width
@@ -200,7 +204,7 @@ class InspectionWindow(tk.Toplevel):
             )
             slice_bbox = scaled_data.bbox.get_patch()
             slice_bbox.set(
-                color="orange" if slice_id % 2 == 0 else "red",
+                color="red" if slice_id % 2 == 0 else "darkred",
                 alpha=0.25,
                 fill=True,
                 hatch="//",
@@ -226,16 +230,19 @@ class InspectionWindow(tk.Toplevel):
     def on_image_selector_change(self, event: tk.Event) -> None:
         selected = self.gt_selector.get()
         if selected == "None":
-            self.plotted_gt_image.set_data(np.full((50, 50), 1.0))
+            self.gt_figure_ax.cla()
+            self.gt_figure_ax.set_axis_off()
             self.gt_figure.canvas.draw()
             return None
 
         img_slice = self.project.id2slice[int(selected)]
         if img_slice.gt_file is not None:
+            self.gt_figure_ax.cla()
             with open(img_slice.gt_file, "r") as f_in:
                 img_png = cairosvg.svg2png(f_in.read())
             loaded_img = Image.open(BytesIO(img_png))
-            self.plotted_gt_image.set_data(np.asarray(loaded_img))
+            self.gt_figure_ax.imshow(loaded_img)
+            self.gt_figure_ax.set_axis_off()
             self.gt_figure.canvas.draw()
 
     def on_inspector_selection_change(self, event: tk.Event) -> None:
