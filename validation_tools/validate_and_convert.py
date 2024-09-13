@@ -11,7 +11,6 @@ from subprocess import run
 from typing import List, NamedTuple
 
 import numpy as np
-
 # import xml.etree.ElementTree as ET
 from lxml import etree
 from lxml.etree import _Element as Element
@@ -40,14 +39,14 @@ class Rectangle(NamedTuple):
 _LOGGER = logging.getLogger(__name__)
 
 MUSESCORE_EXECUTABLE = (
-    # "/home/ptorras/AppImage/MuseScore-Studio-4.3.2.241630832-x86_64.AppImage"
-    "/Applications/MuseScore 4.app/Contents/MacOS/mscore"
+    "/home/ptorras/AppImage/MuseScore-Studio-4.4.1.242490810-x86_64_85baedfc506d4677b0d6b31fcd59c5a3.AppImage"
+    # "/Applications/MuseScore 4.app/Contents/MacOS/mscore"
     # "/home/pau/AppImage/MuseScore-Studio-4.3.2.241630832-x86_64.AppImage"
 )
 
 VEROVIO_EXECUTABLE = (
-    # "/home/ptorras/Documents/Repos/verovio/cmake/cmake-build-debug/verovio"
-    "/Users/ptorras/Documents/Repos/verovio/cmake/verovio"
+    "/home/ptorras/Documents/Repos/verovio/cmake/cmake-build-debug/verovio"
+    # "/Users/ptorras/Documents/Repos/verovio/cmake/verovio"
     # "/home/pau/repos/verovio/cmake/cmake-build-debug/verovio"
 )
 
@@ -241,14 +240,16 @@ def convert_pack(pack_path: Path, overwrite: bool) -> None:
                 "--breaks",
                 "none",
                 "--page-margin-bottom",
-                "0",
+                "50",
                 "--page-margin-left",
-                "0",
+                "50",
                 "--page-margin-right",
-                "0",
+                "50",
                 "--page-margin-top",
-                "0",
+                "50",
                 "--condense-first-page",
+                "--header",
+                "none",
                 str(mxml_file),
                 "-o",
                 str(svg_file),
@@ -369,7 +370,7 @@ def _identify_beams(root: Element) -> None:
 #         art.set("id", f"artic{ii}")
 
 
-# def _identify_ornaments(root: ET.Element) -> None:
+# def _identify_ornaments(root: Element) -> None:
 #     orns = _find(root, "./part/measure", "note/notations/ornaments")
 
 #     for ii, art in enumerate(orns, 1):
@@ -430,8 +431,10 @@ def postprocess_svg(svg_file: Path) -> None:
 
     _remove_unnecessary_svg(root)
     _rebuild_svg_beams(root)
+    _rebuild_svg_barlines(root)
 
     # Performed AFTER changing beams - careful!
+    _identify_svg_timesigs(root)
     _identify_svg_dots(root)
     _identify_svg_noteheads(root)
     _identify_svg_tremolos(root)
@@ -450,7 +453,7 @@ def _remove_unnecessary_svg(root: Element) -> None:
 
     Parameters
     ----------
-    root : ET.Element
+    root : Element
         Root element of the score in SVG format.
     """
 
@@ -477,7 +480,7 @@ def _rebuild_svg_beams(root: Element) -> None:
 
     Parameters
     ----------
-    root : ET.Element
+    root : Element
         Root SVG score element.
     """
     beam_nodes = root.findall(".//svg:g[@class='beam']", namespaces=NAMESPACES)
@@ -547,12 +550,40 @@ def _get_beam_rectangle(et_poly: Element) -> Rectangle:
     return Rectangle(tl, tr, br, bl)
 
 
+def _rebuild_svg_barlines(root: Element) -> None:
+    # TODO: Combine beams with the same starting X coordinate into the same segments
+    # TODO: Combine sets of two dots with the same X coordinate into a repeat element
+    # raise NotImplementedError()
+    ...
+
+
+def _identify_svg_timesigs(root: Element) -> None:
+    """Give an identifier to time signature elements.
+
+    Parameters
+    ----------
+    root : Element
+        Root SVG score element.
+    """
+    time_containers = root.findall(".//svg:g[@class='meterSig']", namespaces=NAMESPACES)
+    memory = {}
+    for container in time_containers:
+        container_id = container.get("id")
+
+        if container_id in memory:
+            container.set("id", f"{container_id}_{memory[container_id]}")
+            memory[container_id] += 1
+        else:
+            container.set("id", f"{container_id}_1")
+            memory[container_id] = 2
+
+
 def _identify_svg_dots(root: Element) -> None:
     """Give an identifier to dots.
 
     Parameters
     ----------
-    root : ET.Element
+    root : Element
         Root SVG score element.
 
     """
@@ -649,7 +680,7 @@ def _identify_svg_tremolos(root: Element) -> None:
 
     Parameters
     ----------
-    root : ET.Element
+    root : Element
         Root SVG score element.
 
     """
@@ -675,7 +706,7 @@ def _identify_svg_noteheads(root: Element) -> None:
 
     Parameters
     ----------
-    root : ET.Element
+    root : Element
         Root SVG score element.
     """
     note_nodes = root.findall(".//svg:g[@class='note']", namespaces=NAMESPACES)
@@ -692,7 +723,7 @@ def _identify_svg_mrep(root: Element) -> None:
 
     Parameters
     ----------
-    root : ET.Element
+    root : Element
         Root SVG score element.
     """
     measure_nodes = root.xpath(".//svg:g[@class='measure']", namespaces=NAMESPACES)
@@ -709,7 +740,7 @@ def _identify_svg_ending(root: Element) -> None:
 
     Parameters
     ----------
-    root : ET.Element
+    root : Element
         Root SVG score element.
     """
     ending_nodes = root.xpath(
@@ -728,7 +759,7 @@ def _identify_svg_flags(root: Element) -> None:
 
     Parameters
     ----------
-    root : ET.Element
+    root : Element
         Root SVG score element.
     """
     stem_nodes = root.findall(".//svg:g[@class='stem']", namespaces=NAMESPACES)
@@ -744,7 +775,7 @@ def _identify_svg_tuplet_num(root: Element) -> None:
 
     Parameters
     ----------
-    root : ET.Element
+    root : Element
         Root SVG score element.
 
     """
@@ -762,7 +793,7 @@ def _identify_svg_tuplet_bracket(root: Element) -> None:
 
     Parameters
     ----------
-    root : ET.Element
+    root : Element
         Root SVG score element.
 
     """
