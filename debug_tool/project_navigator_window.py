@@ -30,6 +30,9 @@ class ProjectNavigatorWindow:
             "filter": tk.PhotoImage(
                 file=str(Path(__file__).parent / "icons" / "magnifier.png")
             ),
+            "open_folder": tk.PhotoImage(
+                file=str(Path(__file__).parent / "icons" / "open_folder.png")
+            ),
             "plot": tk.PhotoImage(
                 file=str(Path(__file__).parent / "icons" / "plot.png")
             ),
@@ -130,6 +133,16 @@ class ProjectNavigatorWindow:
         buttons.append(
             ttk.Button(
                 self.toolstrip,
+                text="Open Containing Folder",
+                image=self.icons["open_folder"],
+                command=self.command_open_in_browser,
+                width=32,
+            )
+        )
+
+        buttons.append(
+            ttk.Button(
+                self.toolstrip,
                 text="Show Plot",
                 image=self.icons["plot"],
                 command=self.command_show_plot,
@@ -210,6 +223,11 @@ class ProjectNavigatorWindow:
         index = self.treeview.selection()
         for ii in map(int, index):
             run(["open", str(self.data[ii].project_file)])
+
+    def command_open_in_browser(self) -> None:
+        index = self.treeview.selection()
+        for ii in map(int, index):
+            run(["open", str(self.data[ii].project_path)])
 
     def command_show_plot(self) -> None:
         index = self.treeview.selection()
