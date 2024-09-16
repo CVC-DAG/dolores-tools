@@ -5,10 +5,12 @@ import logging
 import re
 import shutil
 from argparse import ArgumentParser, Namespace
+from dataclasses import dataclass
+from enum import Enum
 from math import inf, sqrt
 from pathlib import Path
 from subprocess import run
-from typing import List, NamedTuple
+from typing import Iterator, List, Optional, Tuple
 
 import numpy as np
 # import xml.etree.ElementTree as ET
@@ -16,7 +18,8 @@ from lxml import etree
 from lxml.etree import _Element as Element
 
 
-class Point(NamedTuple):
+@dataclass
+class Point:
     """Represents a point in a bounding box."""
 
     x: int
@@ -25,15 +28,89 @@ class Point(NamedTuple):
     def __str__(self) -> str:
         return f"{self.x},{self.y}"
 
+    def as_tuple(self) -> Tuple[int, int]:
+        return self.x, self.y
+
     def dist(self, other: Point) -> float:
         return sqrt((other.x - self.x) ** 2 + (other.y - self.y) ** 2)
 
 
-class Rectangle(NamedTuple):
+@dataclass
+class RepeatDot(Point):
+    character: str
+
+    def to_svg(self) -> Element:
+        return etree.Element(
+            "use",
+            {
+                f"{{{NAMESPACES['xlink']}}}href": str(self.character),
+                "x": str(self.x),
+                "y": str(self.y),
+                "height": "720px",
+                "width": "720px",
+            },
+        )
+
+
+class RepeatType(Enum):
+    FORWARD = "forward"
+    BACKWARD = "backward"
+
+
+class RepeatDots:
+    def __init__(
+        self,
+        point_top: RepeatDot,
+        point_bot: RepeatDot,
+        direction: RepeatType,
+    ) -> None:
+        self.point_top = point_top
+        self.point_bot = point_bot
+        self.direction = direction
+
+    def to_svg(self, ident: str) -> Element:
+        output = etree.Element(
+            f"{{{NAMESPACES['svg']}}}g",
+            {"id": ident, "class": "repeat"},
+            nsmap=NAMESPACES,
+        )
+
+        output.append(self.point_top.to_svg())
+        output.append(self.point_bot.to_svg())
+
+        return output
+
+
+@dataclass
+class Rectangle:
     tl: Point
     tr: Point
     br: Point
     bl: Point
+
+    def __iter__(self) -> Iterator[Point]:
+        yield from [self.tl, self.tr, self.br, self.bl]
+
+
+@dataclass
+class SvgLine:
+    origin: Point
+    dest: Point
+    weight: int
+
+    def to_svg(self, ident: str) -> Element:
+        output = etree.Element(
+            f"{{{NAMESPACES['svg']}}}path",
+            {
+                "id": ident,
+                "d": f"M{self.origin.x} {self.origin.y} L{self.dest.x} {self.dest.y}",
+                "stroke": "currentColor",
+                "stroke-width": str(self.weight),
+                "class": "barline_tok",
+            },
+            nsmap=NAMESPACES,
+        )
+        return output
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -52,6 +129,10 @@ VEROVIO_EXECUTABLE = (
 
 RE_FNAME = re.compile(r"(.+)\.([0-9]{2})\.mscz")
 RE_BEAM_ID = re.compile(r"beam(\d+)")
+
+RE_MOVETO_COMMAND = re.compile(r"M(\d+)[, ](\d+)")
+RE_LINETO_COMMAND = re.compile(r"L(\d+)[, ](\d+)")
+
 OUTPUT_EXTENSION = "jpg"
 
 
@@ -551,10 +632,114 @@ def _get_beam_rectangle(et_poly: Element) -> Rectangle:
 
 
 def _rebuild_svg_barlines(root: Element) -> None:
-    # TODO: Combine beams with the same starting X coordinate into the same segments
-    # TODO: Combine sets of two dots with the same X coordinate into a repeat element
-    # raise NotImplementedError()
-    ...
+    barlines = root.findall(".//svg:g[@class='barLine']", namespaces=NAMESPACES)
+    for barline in barlines:
+        _edit_barline_elements(barline)
+
+
+def _edit_barline_elements(barline_node: Element) -> None:
+    barline_id = barline_node.get("id")
+
+    # Make sure the barline element is not empty
+    if len(barline_node) == 0:
+        parent = barline_node.getparent()
+        if parent is not None:
+            parent.remove(barline_node)
+        return None
+    segments = barline_node.findall("./svg:path", namespaces=NAMESPACES)
+    segments = list(map(_parse_segment, segments))
+    segments = _combine_segments(segments)
+
+    dots = barline_node.findall("./svg:use", namespaces=NAMESPACES)
+    dots = list(map(_parse_repeat_dot, dots))
+    dots = _combine_repeat_dots(dots, segments[0].origin.x)
+
+    for node in barline_node:
+        barline_node.remove(node)
+
+    for ii, segment in enumerate(segments, 1):
+        barline_node.append(segment.to_svg(f"{barline_id}.barline_tok{ii}"))
+
+    for ii, dot in enumerate([x for x in dots if x.direction == RepeatType.FORWARD], 1):
+        barline_node.append(dot.to_svg(f"{barline_id}.repeat_forward{ii}"))
+
+    for ii, dot in enumerate(
+        [x for x in dots if x.direction == RepeatType.BACKWARD], 1
+    ):
+        barline_node.append(dot.to_svg(f"{barline_id}.repeat_backward{ii}"))
+
+
+def _parse_segment(path_element: Element) -> SvgLine:
+    draw_cmd = path_element.get("d")
+
+    if draw_cmd is None:
+        raise ValueError("No draw command in Barline segment")
+
+    weight = path_element.get("stroke-width")
+
+    if weight is None:
+        raise ValueError("No stroke-width command in Barline segment")
+
+    weight = int(weight)
+
+    move_cmd = RE_MOVETO_COMMAND.search(draw_cmd)
+    line_cmd = RE_LINETO_COMMAND.search(draw_cmd)
+
+    if move_cmd is None or line_cmd is None:
+        raise ValueError("Malformed draw command in Barline segment")
+
+    origin_x, origin_y = map(int, move_cmd.groups())
+    target_x, target_y = map(int, line_cmd.groups())
+
+    return SvgLine(Point(origin_x, origin_y), Point(target_x, target_y), weight)
+
+
+def _combine_segments(lines: List[SvgLine]) -> List[SvgLine]:
+    sorted_lines = list(sorted(lines, key=lambda x: (x.origin.x, x.origin.y)))
+    output_lines = []
+    base_segment = sorted_lines[0]
+
+    for comp_segment in sorted_lines[1:]:
+        if (
+            base_segment.dest.y == comp_segment.origin.y
+            and base_segment.origin.x == comp_segment.origin.x
+            and base_segment.weight == comp_segment.weight
+        ):
+            base_segment.dest = comp_segment.dest
+        else:
+            output_lines.append(base_segment)
+            base_segment = comp_segment
+    output_lines.append(base_segment)
+    return output_lines
+
+
+def _parse_repeat_dot(dot_element: Element) -> RepeatDot:
+    character = dot_element.get(f"{{{NAMESPACES['xlink']}}}href")
+    xcoord = dot_element.get("x")
+    ycoord = dot_element.get("y")
+
+    if character is None:
+        raise ValueError("No string value in repeat dot element")
+
+    if xcoord is None or ycoord is None:
+        raise ValueError("Missing coordinate in repeat dot element")
+
+    return RepeatDot(int(xcoord), int(ycoord), character)
+
+
+def _combine_repeat_dots(points: List[RepeatDot], reference_x: int) -> List[RepeatDots]:
+    sorted_dots = list(sorted(points, key=lambda x: (x.x, x.y)))
+    output_dots = []
+    for dot1, dot2 in zip(sorted_dots[::2], sorted_dots[1::2]):
+        if dot1.x == dot2.x:
+            output_dots.append(
+                RepeatDots(
+                    dot1,
+                    dot2,
+                    RepeatType.BACKWARD if dot1.x < reference_x else RepeatType.FORWARD,
+                )
+            )
+    return output_dots
 
 
 def _identify_svg_timesigs(root: Element) -> None:
@@ -652,8 +837,8 @@ def _identify_svg_dots(root: Element) -> None:
 
             notehead_coords.append(Point(x_notehead, y_notehead))
 
-        notehead_matrix = np.array(notehead_coords)
-        dot_matrix = np.array(dot_coords)
+        notehead_matrix = np.array(list(map(lambda x: x.as_tuple(), notehead_coords)))
+        dot_matrix = np.array(list(map(lambda x: x.as_tuple(), dot_coords)))
 
         # Use only y coordinates
         dist_matrix = dot_matrix[:, np.newaxis, 1] - notehead_matrix[np.newaxis, :, 1]
