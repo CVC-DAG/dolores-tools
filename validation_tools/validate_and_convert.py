@@ -129,6 +129,7 @@ VEROVIO_EXECUTABLE = (
 
 RE_FNAME = re.compile(r"(.+)\.([0-9]{2})\.mscz")
 RE_BEAM_ID = re.compile(r"beam(\d+)")
+RE_OLD_FILES = re.compile(r"OLD_.*")
 
 RE_MOVETO_COMMAND = re.compile(r"M(\d+)[, ](\d+)")
 RE_LINETO_COMMAND = re.compile(r"L(\d+)[, ](\d+)")
@@ -153,6 +154,12 @@ def validate_mscz(images: List[str], mscz_path: Path) -> None:
     found = []
     max_index = {}  # name, max_index
     for transcript in mscz_path.glob("*.mscz"):
+        # Ensure the file in question does not have an OLD_ prefix
+        old_file = RE_OLD_FILES.match(transcript.name)
+
+        if old_file is not None:
+            continue
+
         match = RE_FNAME.match(transcript.name)
         if match is None:
             raise ValueError(
