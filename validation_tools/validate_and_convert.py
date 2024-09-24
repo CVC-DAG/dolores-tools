@@ -13,6 +13,7 @@ from subprocess import run
 from typing import Iterator, List, Optional, Tuple
 
 import numpy as np
+
 # import xml.etree.ElementTree as ET
 from lxml import etree
 from lxml.etree import _Element as Element
@@ -158,6 +159,7 @@ def validate_mscz(images: List[str], mscz_path: Path) -> None:
         old_file = RE_OLD_FILES.match(transcript.name)
 
         if old_file is not None:
+            _LOGGER.debug("File has an OLD prefix. Skipping...")
             continue
 
         match = RE_FNAME.match(transcript.name)
@@ -285,6 +287,12 @@ def convert_pack(pack_path: Path, overwrite: bool) -> None:
     job_file = []
 
     for mscz_file in musescore_folder.glob("*.mscz"):
+        # Ensure the file in question does not have an OLD_ prefix
+        old_file = RE_OLD_FILES.match(mscz_file.name)
+
+        if old_file is not None:
+            _LOGGER.debug("File has an OLD prefix. Skipping...")
+            continue
         _LOGGER.info(f"Converting {mscz_file} to XML...")
 
         # Use uncompressed MusicXML to incorporate identifiers afterward
