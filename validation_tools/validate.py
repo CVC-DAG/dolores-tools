@@ -21,7 +21,6 @@ from lxml.etree import _Element as Element
 
 logging.basicConfig(level=logging.INFO)
 _LOGGER = logging.getLogger(__name__)
-_LOGGER.addHandler(logging.StreamHandler(sys.stderr))
 
 
 @dataclass
@@ -34,23 +33,42 @@ class ValidationOutput:
     untranscribed_images: List[Path]
 
     def __str__(self) -> str:
-        output = "=" * 20 + "\n"
-        output += "Valid Filenames\n"
-        output += "=" * 20 + "\n"
-        output += "\n".join(map(str, self.valid_files)) + "\n"
+        output = ""
+
+        # output = "=" * 20 + "\n"
+        # output += "Valid Filenames\n"
+        # output += "=" * 20 + "\n"
+        # output += "\n".join(map(str, self.valid_files)) + "\n"
 
         output += "=" * 20 + "\n"
         output += "Invalid Filenames\n"
         output += "=" * 20 + "\n"
-        output += "\n".join(map(str, self.transcripts_without_image)) + "\n"
-        output += "\n".join(map(str, self.transcripts_badly_named)) + "\n"
-        output += "\n".join(map(str, self.missing_line_transcripts)) + "\n"
-        output += "\n".join(map(str, self.packs_without_musescore_folder)) + "\n"
 
-        output += "=" * 20 + "\n"
-        output += "Untranscribed images\n"
-        output += "=" * 20 + "\n"
-        output += "\n".join(map(str, self.untranscribed_images)) + "\n"
+        if len(self.transcripts_without_image):
+            output += "\nTranscripts without image:\n\n"
+            output += (
+                "\t" + "\n\t".join(map(str, self.transcripts_without_image)) + "\n"
+            )
+
+        if len(self.transcripts_badly_named):
+            output += "\nMalformed transcript name:\n\n"
+            output += "\t" + "\n\t".join(map(str, self.transcripts_badly_named)) + "\n"
+
+        if len(self.missing_line_transcripts):
+            output += "\nMissing lines:\n\n"
+            output += "\t" + "\n\t".join(map(str, self.missing_line_transcripts)) + "\n"
+
+        if len(self.packs_without_musescore_folder):
+            output += "\nNo Musescore Folder:\n\n"
+            output += (
+                "\t" + "\n\t".join(map(str, self.packs_without_musescore_folder)) + "\n"
+            )
+
+        if len(self.untranscribed_images):
+            output += "=" * 20 + "\n"
+            output += "Untranscribed images\n"
+            output += "=" * 20 + "\n"
+            output += "\t" + "\n\t".join(map(str, self.untranscribed_images)) + "\n"
         output += "\n"
         return output
 
@@ -72,6 +90,9 @@ class FileStructureValidator:
     RE_FNAME = re.compile(r"(.+)\.([0-9]{2})\.mscz")
     RE_OLD_FILES = re.compile(r"OLD_.*")
 
+    VALID_EXTENSIONS = ["tif", "jpg", "jpeg", "png"]
+    VALID_EXTENSIONS += [x.upper() for x in VALID_EXTENSIONS]
+
     def __init__(self) -> None:
         self.validation_output: ValidationOutput = ValidationOutput.make_empty()
 
@@ -90,14 +111,13 @@ class FileStructureValidator:
         if mscz_path.exists():
             self._validate_mscz(mscz_path, set(map(lambda x: x.stem, images)))
         else:
-            _LOGGER.warn(f"Pack without MuseScore folder: {str(pack_path)}")
+            _LOGGER.warning(f"Pack without MuseScore folder: {str(pack_path)}")
             self.validation_output.packs_without_musescore_folder.append(pack_path)
 
     def _find_images(self, pack_path: Path) -> List[Path]:
-        images = [im for im in pack_path.glob("*.tif") if im.is_file()]
-        images += [im for im in pack_path.glob("*.png") if im.is_file()]
-        images += [im for im in pack_path.glob("*.jpg") if im.is_file()]
-        images += [im for im in pack_path.glob("*.jpeg") if im.is_file()]
+        images = []
+        for extension in self.VALID_EXTENSIONS:
+            images += [im for im in pack_path.glob(f"*.{extension}") if im.is_file()]
 
         return images
 
@@ -117,7 +137,7 @@ class FileStructureValidator:
             match = self.RE_FNAME.match(transcript.name)
             if match is None:
                 _LOGGER.info(
-                    f"Filename does not follow naming convention: {str(transcript)}"
+                    f"Filename does not follow naming convention: {transcript}"
                 )
                 self.validation_output.transcripts_badly_named.append(transcript)
                 continue
@@ -130,7 +150,7 @@ class FileStructureValidator:
             # Check there is an associated image to this transcript
             if filename not in images:
                 _LOGGER.info(
-                    f"Transcription for which there is no image found: {str(mscz_path / match.group(1))}"
+                    f"Transcription for which there is no image found: {transcript}"
                 )
                 self.validation_output.transcripts_without_image.append(transcript)
                 continue
