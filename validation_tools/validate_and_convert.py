@@ -17,6 +17,7 @@ import numpy as np
 # import xml.etree.ElementTree as ET
 from lxml import etree
 from lxml.etree import _Element as Element
+from validate import FileStructureValidator
 
 
 @dataclass
@@ -123,7 +124,7 @@ MUSESCORE_EXECUTABLE = (
 )
 
 VEROVIO_EXECUTABLE = (
-    "/home/ptorras/Documents/Repos/verovio/cmake/cmake-build-debug/verovio"
+    "/home/ptorras/Documents/Repos/verovio/cmake/build-binary-release/verovio"
     # "/Users/ptorras/Documents/Repos/verovio/cmake/verovio"
     # "/home/pau/repos/verovio/cmake/cmake-build-debug/verovio"
 )
@@ -151,60 +152,13 @@ NAMESPACES = {
 }
 
 
-def validate_mscz(images: List[str], mscz_path: Path) -> None:
-    found = []
-    max_index = {}  # name, max_index
-    for transcript in mscz_path.glob("*.mscz"):
-        # Ensure the file in question does not have an OLD_ prefix
-        old_file = RE_OLD_FILES.match(transcript.name)
-
-        if old_file is not None:
-            _LOGGER.debug("File has an OLD prefix. Skipping...")
-            continue
-
-        match = RE_FNAME.match(transcript.name)
-        if match is None:
-            raise ValueError(
-                f"Filename does not follow naming convention: {str(mscz_path / transcript)}"
-            )
-        if match.group(1) not in images:
-            raise FileNotFoundError(
-                f"Transcription for which there is no image found: {str(mscz_path / match.group(1))}"
-            )
-        else:
-            found.append(match.group(1))
-            if not match.group(1) in max_index:
-                max_index[match.group(1)] = int(match.group(2))
-            else:
-                max_index[match.group(1)] = max(
-                    max_index[match.group(1)], int(match.group(2))
-                )
-
-    # Ensure all lines are present
-    for name, max_val in max_index.items():
-        for ii in range(1, max_val + 1):
-            if not (mscz_path / f"{name}.{ii:02}.mscz").exists():
-                raise ValueError(
-                    f"Line {ii} transcription is missing for file {name} in file {str(mscz_path)}"
-                )
-
-    not_transcribed = set(images) - set(found)
-    if len(not_transcribed) > 0:
-        raise ValueError(
-            f"Some images are not transcribed in {str(mscz_path)}: "
-            + ", ".join(not_transcribed)
-        )
-
-
 def process_images(pack_path: Path) -> List[str]:
-    images = [im for im in pack_path.glob("*.tif") if im.is_file()]
-    images += [im for im in pack_path.glob("*.png") if im.is_file()]
-    images += [im for im in pack_path.glob("*.jpg") if im.is_file()]
-    images += [im for im in pack_path.glob("*.jpeg") if im.is_file()]
+    images = FileStructureValidator.find_images(pack_path)
 
     for img in images:
         if (
-            img.suffix in {".tif", ".png", ".jpeg", "jpg"} - {OUTPUT_EXTENSION}
+            img.suffix
+            in set(FileStructureValidator.VALID_EXTENSIONS) - {OUTPUT_EXTENSION}
             and not (img.parent / f"{img.stem}.{OUTPUT_EXTENSION}").exists()
         ):
             run(
@@ -242,20 +196,31 @@ def main(args: Namespace) -> None:
         filename="./validate_and_convert.log",
         level=logging.INFO if args.debug is False else logging.DEBUG,
     )
-    _LOGGER.info("Setting up...")
+    _LOGGER.info("Validating pack file structure")
+    validator = FileStructureValidator()
+    validation = validator.validate_set(args.set_path)
+
+    if not validation.valid():
+        _LOGGER.info("File structure is not valid. Aborting...")
+        _LOGGER.info(str(validation))
+        raise FileNotFoundError("Invalid File Structure")
+
+    _LOGGER.info("Data structure for pack is valid!")
+
     output_path = args.set_path.parent / f"{args.set_path.name}_CLEAN"
     output_path.mkdir(exist_ok=True, parents=False)
+
     for pack_path in args.set_path.glob("*"):
         if pack_path.name[0] == ".":
             _LOGGER.info(f"Skipping hidden folder {pack_path.name}...")
             continue
 
-        _LOGGER.info(f"Processing {pack_path}...")
+        _LOGGER.info(f"Processing {pack_path}")
         clean_pack_path = output_path / pack_path.name
         clean_pack_path.mkdir(exist_ok=True, parents=False)
         convert_pack(pack_path, args.overwrite)
 
-        _LOGGER.info("Copying output pack...")
+        _LOGGER.info("Copying output pack")
         copy_alignment_files(pack_path, clean_pack_path)
 
 
@@ -283,7 +248,6 @@ def convert_pack(pack_path: Path, overwrite: bool) -> None:
 
     images = process_images(pack_path)
 
-    validate_mscz(images, musescore_folder)
     job_file = []
 
     for mscz_file in musescore_folder.glob("*.mscz"):
@@ -293,7 +257,7 @@ def convert_pack(pack_path: Path, overwrite: bool) -> None:
         if old_file is not None:
             _LOGGER.debug("File has an OLD prefix. Skipping...")
             continue
-        _LOGGER.info(f"Converting {mscz_file} to XML...")
+        _LOGGER.debug(f"Adding {mscz_file} to conversion list")
 
         # Use uncompressed MusicXML to incorporate identifiers afterward
         mxml_file = musicxml_folder / f"{mscz_file.stem}.musicxml"
@@ -545,13 +509,18 @@ def postprocess_svg(svg_file: Path) -> None:
 
 
 def _remove_unnecessary_svg(root: Element) -> None:
-    """Remove header and misc information from the SVG of the score.
+    """Remove empty SVG group elements and other minor annoyances.
 
     Parameters
     ----------
     root : Element
         Root element of the score in SVG format.
     """
+    group_elements = root.findall(".//svg:g", namespaces=NAMESPACES)
+    for child in group_elements:
+        if len(child) == 0:
+            child.getparent().remove(child)
+            _LOGGER.debug(f"Removing subtree: {etree.tostring(child)}")
 
 
 def _rebuild_svg_beams(root: Element) -> None:

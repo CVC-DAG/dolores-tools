@@ -1,23 +1,11 @@
 from __future__ import annotations
 
-import json
 import logging
 import re
-import shutil
-import sys
-from argparse import ArgumentParser, Namespace
+from argparse import ArgumentParser
 from dataclasses import dataclass
-from enum import Enum
-from math import inf, sqrt
 from pathlib import Path
-from subprocess import run
-from typing import Dict, List, Set
-
-import numpy as np
-
-# import xml.etree.ElementTree as ET
-from lxml import etree
-from lxml.etree import _Element as Element
+from typing import List, Set
 
 logging.basicConfig(level=logging.INFO)
 _LOGGER = logging.getLogger(__name__)
@@ -105,7 +93,7 @@ class FileStructureValidator:
         return self.validation_output
 
     def _validate_pack(self, pack_path: Path) -> None:
-        images = self._find_images(pack_path)
+        images = self.find_images(pack_path)
         mscz_path = pack_path / "MUSESCORE"
 
         if mscz_path.exists():
@@ -114,9 +102,10 @@ class FileStructureValidator:
             _LOGGER.warning(f"Pack without MuseScore folder: {str(pack_path)}")
             self.validation_output.packs_without_musescore_folder.append(pack_path)
 
-    def _find_images(self, pack_path: Path) -> List[Path]:
+    @classmethod
+    def find_images(cls, pack_path: Path) -> List[Path]:
         images = []
-        for extension in self.VALID_EXTENSIONS:
+        for extension in cls.VALID_EXTENSIONS:
             images += [im for im in pack_path.glob(f"*.{extension}") if im.is_file()]
 
         return images
