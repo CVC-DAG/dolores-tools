@@ -84,23 +84,30 @@ class FileStructureValidator:
     def __init__(self) -> None:
         self.validation_output: ValidationOutput = ValidationOutput.make_empty()
 
+    def reset(self) -> None:
+        self.validation_output: ValidationOutput = ValidationOutput.make_empty()
+
+    def get_output(self) -> ValidationOutput:
+        return self.validation_output
+
     def validate_set(self, set_path: Path) -> ValidationOutput:
-        self.validation_output = ValidationOutput.make_empty()
         for pack_path in set_path.glob("*"):
             if pack_path.is_dir():
-                self._validate_pack(pack_path)
+                self.validate_pack(pack_path)
 
         return self.validation_output
 
-    def _validate_pack(self, pack_path: Path) -> None:
+    def validate_pack(self, pack_path: Path) -> ValidationOutput:
         images = self.find_images(pack_path)
         mscz_path = pack_path / "MUSESCORE"
 
         if mscz_path.exists():
-            self._validate_mscz(mscz_path, set(map(lambda x: x.stem, images)))
+            self.validate_mscz_folder(mscz_path, set(map(lambda x: x.stem, images)))
         else:
             _LOGGER.warning(f"Pack without MuseScore folder: {str(pack_path)}")
             self.validation_output.packs_without_musescore_folder.append(pack_path)
+
+        return self.validation_output
 
     @classmethod
     def find_images(cls, pack_path: Path) -> List[Path]:
@@ -110,7 +117,28 @@ class FileStructureValidator:
 
         return images
 
-    def _validate_mscz(self, mscz_path: Path, images: Set[str]) -> None:
+    def validate_mscz_folder(
+        self, mscz_path: Path, images: Set[str]
+    ) -> ValidationOutput:
+        """Validate the contents of a MUSESCORE folder within a pack.
+
+        Checks whether the contents of the MSCZ folder conform to standard. Changes the
+        state of the class.
+
+        Parameters
+        ----------
+        mscz_path : Path
+            Full path to the MUSESCORE folder.
+        images : Set[str]
+            List of image file names within the parent pack to ensure that they have
+            their corresponding transcriptions.
+
+        Returns
+        -------
+        ValidationOutput
+            Pointer to the validation result object contained within the validation
+            class, updated with the newly analised files.
+        """
         max_index = {}  # name, max_index
         found = set()
 
@@ -170,6 +198,27 @@ class FileStructureValidator:
                 + ", ".join(map(str, not_transcribed))
             )
         self.validation_output.untranscribed_images += not_transcribed
+
+        return self.validation_output
+
+    def validate_image(self, img_path: Path) -> ValidationOutput:
+        """Validate the files required to align a single image file within a pack.
+
+        Checks whether the contents of the MSCZ folder related to an individual image
+        conform to standard. Changes the state of the class.
+
+        Parameters
+        ----------
+        img_path : Path
+            Full path to the image within a pack.
+
+        Returns
+        -------
+        ValidationOutput
+            Pointer to the validation result object contained within the validation
+            class, updated with the newly analised files.
+        """
+        ...
 
 
 if __name__ == "__main__":
