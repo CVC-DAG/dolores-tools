@@ -237,6 +237,10 @@ class ConversionPipeline:
             raise FileNotFoundError("Invalid File Structure")
 
         for pack in set_path.glob("*"):
+            if pack.name[0] == ".":
+                _LOGGER.info(f"Skipping hidden folder {pack.name}...")
+                continue
+
             musescore_folder = pack / "MUSESCORE"
             if not musescore_folder.exists():
                 raise FileNotFoundError(f"No MuseScore folder in {pack}")
