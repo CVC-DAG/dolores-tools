@@ -151,12 +151,8 @@ class FileStructureValidator:
                 continue
 
             # Check file naming convention
-            match = self.RE_FNAME.match(transcript.name)
+            match = self.validate_mscz_filename(transcript)
             if match is None:
-                _LOGGER.info(
-                    f"Filename does not follow naming convention: {transcript}"
-                )
-                self.validation_output.transcripts_badly_named.append(transcript)
                 continue
 
             filename = match.group(1)
@@ -201,6 +197,13 @@ class FileStructureValidator:
 
         return self.validation_output
 
+    def validate_mscz_filename(self, transcript: Path) -> re.Match | None:
+        match = self.RE_FNAME.match(transcript.name)
+        if match is None:
+            _LOGGER.info(f"Filename does not follow naming convention: {transcript}")
+            self.validation_output.transcripts_badly_named.append(transcript)
+        return match
+
     def validate_image(self, img_path: Path) -> ValidationOutput:
         """Validate the files required to align a single image file within a pack.
 
@@ -218,7 +221,36 @@ class FileStructureValidator:
             Pointer to the validation result object contained within the validation
             class, updated with the newly analised files.
         """
-        ...
+        pack_path = img_path.parent
+        mscz_path = pack_path / "MUSESCORE"
+
+        # Ensure MuseScore folder exists
+        if not mscz_path.exists():
+            _LOGGER.info(f"Pack without MuseScore folder: {str(img_path.parent)}")
+            self.validation_output.packs_without_musescore_folder.append(
+                img_path.parent
+            )
+            return self.validation_output
+
+        mscz_files = list(sorted(mscz_path.glob(f"{img_path.stem}.??.mscz")))
+
+        # Transcriptions?
+        if len(mscz_files) == 0:
+            _LOGGER.info(f"Image without transcription: {img_path}")
+            self.validation_output.untranscribed_images.append(img_path)
+            return self.validation_output
+
+        # Missing Lines
+        present_indices = set(map(lambda x: int(x.stem.split(".")[-1]), mscz_files))
+        missing_indices = {x for x in range(1, max(present_indices))} - present_indices
+        self.validation_output.missing_line_transcripts.extend(
+            [mscz_path / f"{img_path.stem}.{ii:02}.mscz" for ii in missing_indices]
+        )
+
+        # Format
+        map(self.validate_mscz_filename, mscz_files)
+
+        return self.validation_output
 
 
 if __name__ == "__main__":

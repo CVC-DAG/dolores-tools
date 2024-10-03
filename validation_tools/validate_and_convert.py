@@ -89,31 +89,20 @@ def copy_alignment_files(pack_path: Path, out_path: Path):
 
 
 def main(args: Namespace) -> None:
-    _LOGGER.info("Validating pack file structure")
-    validator = FileStructureValidator()
-    validation = validator.validate_set(args.set_path)
+    print(args)
+    pipeline = ConversionPipeline(args.overwrite)
 
-    if not validation.valid():
-        _LOGGER.info("File structure is not valid. Aborting...")
-        _LOGGER.info(str(validation))
-        raise FileNotFoundError("Invalid File Structure")
+    if args.collection is not None:
+        pipeline.convert_from_collection(args.collection)
 
-    _LOGGER.info("Data structure for pack is valid!")
+    elif args.set is not None:
+        pipeline.convert_from_set(args.set)
 
-    output_path = args.set_path.parent / f"{args.set_path.name}_CLEAN"
-    output_path.mkdir(exist_ok=True, parents=False)
+    elif args.pack is not None:
+        pipeline.convert_from_pack(args.pack)
 
-    for pack_path in args.set_path.glob("*"):
-        if pack_path.name[0] == ".":
-            _LOGGER.info(f"Skipping hidden folder {pack_path.name}...")
-            continue
-
-        _LOGGER.info(f"Processing {pack_path}")
-        clean_pack_path = output_path / pack_path.name
-        clean_pack_path.mkdir(exist_ok=True, parents=False)
-
-        _LOGGER.info("Copying output pack")
-        copy_alignment_files(pack_path, clean_pack_path)
+    elif args.image is not None:
+        pipeline.convert_from_image(args.image)
 
 
 class ConversionPipeline:
@@ -145,15 +134,21 @@ class ConversionPipeline:
             if not svg_folder.exists():
                 svg_folder.mkdir(exist_ok=False, parents=False)
 
+            # Ensure this is not an old file
+            match = RE_OLD_FILES.match(mscz_file.stem)
+            if match is not None:
+                _LOGGER.info(f"Skipping old file: {mscz_file}")
+                continue
+
             # Files to be created
             mxml_files.append(mxml_folder / f"{mscz_file.stem}.musicxml")
             svg_files.append(svg_folder / f"{mscz_file.stem}.svg")
 
             # Create MuseScore job
-            if not mxml_files[-1].exists() or self.overwrite:
+            if (not mxml_files[-1].exists()) or self.overwrite:
                 job_file.append({"in": str(mscz_file), "out": str(mxml_files[-1])})
             else:
-                _LOGGER.debug(
+                _LOGGER.info(
                     f"Skipping MXML file because it already exists: {mxml_files[-1]}"
                 )
         # Run MuseScore job
@@ -166,7 +161,7 @@ class ConversionPipeline:
             if not svg_file.exists() or self.overwrite:
                 self.run_verovio(mxml_file, svg_file)
             else:
-                _LOGGER.debug(
+                _LOGGER.info(
                     f"Skipping conversion to SVG file because it already exists: {svg_file}"
                 )
             self.svg_processor.process(svg_file)
@@ -206,25 +201,27 @@ class ConversionPipeline:
             raise ValueError("Return code for Verovio was not zero!")
 
     def run_musescore(self, job: List[Dict[str, str]]) -> None:
-        with open("job.json", "w") as f_job:
+        job_path = Path("job.json")
+        with open(job_path, "w") as f_job:
             json.dump(job, f_job, indent=4)
 
         cmd = run(
             args=[
                 MUSESCORE_EXECUTABLE,
                 "-j",
-                "job.json",
+                job_path,
             ],
             capture_output=True,
             text=True,
             check=False,
         )
+        job_path.unlink()
 
         if cmd.returncode != 0:
             _LOGGER.info("Output for MuseScore: " + cmd.stderr)
             raise ValueError("Return code for MuseScore was not zero!")
 
-    def convert_from_collection(self, set_path: Path) -> None:
+    def convert_from_collection(self, collection_path: Path) -> None:
         raise NotImplementedError()
 
     def convert_from_set(self, set_path: Path) -> None:
@@ -266,8 +263,20 @@ class ConversionPipeline:
         self.convert(mscz_files)
         self.validator.reset()
 
-    def convert_from_image(self, set_path: Path) -> None:
-        ...
+    def convert_from_image(self, img_path: Path) -> None:
+        validation = self.validator.validate_image(img_path)
+
+        if not validation.valid():
+            _LOGGER.info("File structure is not valid. Aborting...")
+            _LOGGER.info(str(validation))
+            raise FileNotFoundError("Invalid File Structure")
+
+        pack_path = img_path.parent
+        mscz_path = pack_path / "MUSESCORE"
+        mscz_files = list(sorted(mscz_path.glob(f"{img_path.stem}.??.mscz")))
+
+        self.convert(mscz_files)
+        self.validator.reset()
 
 
 def setup() -> Namespace:
@@ -298,6 +307,11 @@ def setup() -> Namespace:
 
     parser.add_argument(
         "--overwrite",
+        action="store_true",
+        help="Force overwriting of already converted files.",
+    )
+    parser.add_argument(
+        "--debug",
         action="store_true",
         help="Force overwriting of already converted files.",
     )
