@@ -10,7 +10,7 @@ from enum import Enum
 from math import inf, sqrt
 from pathlib import Path
 from subprocess import run
-from typing import Dict, List
+from typing import Callable, Dict, List
 
 import numpy as np
 
@@ -90,7 +90,7 @@ def copy_alignment_files(pack_path: Path, out_path: Path):
 
 def main(args: Namespace) -> None:
     print(args)
-    pipeline = ConversionPipeline(args.overwrite)
+    pipeline = ConversionPipeline(args.overwrite, args.output_path)
 
     if args.collection is not None:
         pipeline.convert_from_collection(args.collection)
@@ -104,17 +104,49 @@ def main(args: Namespace) -> None:
     elif args.image is not None:
         pipeline.convert_from_image(args.image)
 
+    elif args.mscz is not None:
+        pipeline.convert_from_mscz(args.mscz)
+
+
+class OutputFilename(Enum):
+    MXML = "MUSICXML"
+    SVG = "SVG"
+
 
 class ConversionPipeline:
     def __init__(
         self,
         overwrite: bool,
+        output_path: Path | None,
     ) -> None:
         self.mxml_processor = MXMLProcessor()
         self.svg_processor = SVGProcessor()
         self.validator = FileStructureValidator()
 
         self.overwrite = overwrite
+        self.output_path = output_path
+
+        if self.output_path is not None and not self.output_path.exists():
+            self.output_path.mkdir(parents=True)
+
+    def get_target_dir(self, pack_folder: Path, which: OutputFilename) -> Path:
+        if self.output_path is not None:
+            output = self.output_path / which.value
+        else:
+            output = pack_folder / which.value
+
+        if not output.exists():
+            output.mkdir(exist_ok=False, parents=False)
+        return output
+
+    def verify_existing(self, file: Path, on_non_existing: None | Callable[[], None]):
+        if not file.exists() or self.overwrite:
+            if file.exists():
+                _LOGGER.info(f"Overwriting: {file}")
+            if on_non_existing is not None:
+                on_non_existing()
+        else:
+            _LOGGER.info(f"Skipping file because it already exists: {file}")
 
     def convert(self, mscz_files: List[Path]) -> None:
         mxml_files = []
@@ -126,13 +158,8 @@ class ConversionPipeline:
             pack_folder = mscz_file.parent.parent
 
             # Ensure target dirs exist
-            mxml_folder = pack_folder / "MUSICXML"
-            if not mxml_folder.exists():
-                mxml_folder.mkdir(exist_ok=False, parents=False)
-
-            svg_folder = pack_folder / "SVG"
-            if not svg_folder.exists():
-                svg_folder.mkdir(exist_ok=False, parents=False)
+            mxml_folder = self.get_target_dir(pack_folder, OutputFilename.MXML)
+            svg_folder = self.get_target_dir(pack_folder, OutputFilename.SVG)
 
             # Ensure this is not an old file
             match = RE_OLD_FILES.match(mscz_file.stem)
@@ -145,25 +172,18 @@ class ConversionPipeline:
             svg_files.append(svg_folder / f"{mscz_file.stem}.svg")
 
             # Create MuseScore job
-            if (not mxml_files[-1].exists()) or self.overwrite:
-                job_file.append({"in": str(mscz_file), "out": str(mxml_files[-1])})
-            else:
-                _LOGGER.info(
-                    f"Skipping MXML file because it already exists: {mxml_files[-1]}"
-                )
+            job_row = {"in": str(mscz_file), "out": str(mxml_files[-1])}
+            self.verify_existing(mxml_files[-1], lambda: job_file.append(job_row))
+
         # Run MuseScore job
         self.run_musescore(job_file)
 
         # Postprocess files and create SVGs
         for mxml_file, svg_file in zip(mxml_files, svg_files):
             self.mxml_processor.process(mxml_file)
-
-            if not svg_file.exists() or self.overwrite:
-                self.run_verovio(mxml_file, svg_file)
-            else:
-                _LOGGER.info(
-                    f"Skipping conversion to SVG file because it already exists: {svg_file}"
-                )
+            self.verify_existing(
+                svg_file, lambda: self.run_verovio(mxml_file, svg_file)
+            )
             self.svg_processor.process(svg_file)
 
     def run_verovio(self, mxml_file: Path, svg_file: Path) -> None:
@@ -278,6 +298,16 @@ class ConversionPipeline:
         self.convert(mscz_files)
         self.validator.reset()
 
+    def convert_from_mscz(self, mscz_path: Path) -> None:
+        match = self.validator.validate_mscz_filename(mscz_path)
+
+        if match is None:
+            _LOGGER.info("Invalid mscz filename. Not converting.")
+            raise FileNotFoundError("Invalid File Structure")
+
+        self.convert([mscz_path])
+        self.validator.reset()
+
 
 def setup() -> Namespace:
     parser = ArgumentParser()
@@ -304,6 +334,11 @@ def setup() -> Namespace:
         type=Path,
         help="Path to an image within a weekly set.",
     )
+    target.add_argument(
+        "--mscz",
+        type=Path,
+        help="Path to a MuseScore file within a weekly set.",
+    )
 
     parser.add_argument(
         "--overwrite",
@@ -313,6 +348,11 @@ def setup() -> Namespace:
     parser.add_argument(
         "--debug",
         action="store_true",
+        help="Force overwriting of already converted files.",
+    )
+    parser.add_argument(
+        "--output_path",
+        type=Path,
         help="Force overwriting of already converted files.",
     )
     args = parser.parse_args()

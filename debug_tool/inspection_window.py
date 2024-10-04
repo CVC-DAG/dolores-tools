@@ -6,9 +6,9 @@ import cairosvg
 import cv2
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib._api import select_matching_signature
 from matplotlib.backend_bases import key_press_handler
-from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg,
-                                               NavigationToolbar2Tk)
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 from matplotlib.collections import PatchCollection
 from PIL import Image
 from project_data import DoloresProject
@@ -17,6 +17,8 @@ from project_data import DoloresProject
 class InspectionWindow(tk.Toplevel):
     def __init__(self, root: tk.Tk, project: DoloresProject) -> None:
         super().__init__(root)
+        self.root = root
+
         self.project = project
         self.objects_to_draw = {}
         self.object_scale = 0.25
@@ -183,7 +185,8 @@ class InspectionWindow(tk.Toplevel):
         self.gt_selector["values"] = (*elements, "None")
         self.gt_selector.current(len(self.gt_selector["values"]) - 1)
 
-    def _sort_data_by(self, column: str, reverse: bool) -> None: ...
+    def _sort_data_by(self, column: str, reverse: bool) -> None:
+        ...
 
     def insert_inspector_data(self, data: DoloresProject) -> None:
         self.objects_to_draw = {}

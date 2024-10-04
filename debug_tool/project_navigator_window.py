@@ -7,8 +7,7 @@ from tkinter import Message, PhotoImage, ttk
 from typing import List, Optional
 
 from inspection_window import InspectionWindow
-from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg,
-                                               NavigationToolbar2Tk)
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 from matplotlib.pyplot import text
 from project_data import DoloresProject
 
@@ -21,7 +20,10 @@ class ProjectNavigatorWindow:
         self.root.protocol("WM_DELETE_WINDOW", self.on_navigator_close)
         self.data = data
 
+        self.root.bind("<Control-c>", self.on_copy_to_clipboard)
+
         self.frame = ttk.Frame(self.root)
+
         self.toolstrip = ttk.Frame(self.root, height=32)
         self.icons = {
             "inspect": tk.PhotoImage(
@@ -285,3 +287,9 @@ class ProjectNavigatorWindow:
         self.treeview.heading(
             column, command=lambda: self._sort_data_by(column, not reverse)
         )
+
+    def on_copy_to_clipboard(self, event: tk.Event) -> None:
+        self.root.clipboard_clear()
+
+        selection = self.treeview.focus()
+        self.root.clipboard_append(self.treeview.item(selection)["text"])
