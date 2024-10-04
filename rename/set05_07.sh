@@ -1,0 +1,3 @@
+#!/bin/bash
+
+ROOT_PATH="/DATA/Projects/DOLORES/SANDBOX/SET05-12/CVC.07"
