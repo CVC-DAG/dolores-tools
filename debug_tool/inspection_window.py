@@ -19,6 +19,8 @@ class InspectionWindow(tk.Toplevel):
         super().__init__(root)
         self.root = root
 
+        self.root.bind("<Control-a>", self.on_select_everything)
+
         self.project = project
         self.objects_to_draw = {}
         self.object_scale = 0.25
@@ -258,3 +260,6 @@ class InspectionWindow(tk.Toplevel):
             self.drawn_objects[selected].set_visible(True)
 
         self.insp_figure.canvas.draw()
+
+    def on_select_everything(self, event: tk.Event) -> None:
+        selection = self.inspector
