@@ -2,7 +2,7 @@ import tkinter as tk
 from io import BytesIO
 from tkinter import ttk
 
-import cairosvg
+# import cairosvg   # TEMPORALMENT FORA MENTRE NO TROBI UNA ALTERNATIVA MULTIPLATAFORMA
 import cv2
 import matplotlib.pyplot as plt
 import numpy as np
@@ -244,7 +244,8 @@ class InspectionWindow(tk.Toplevel):
         if img_slice.gt_file is not None:
             self.gt_figure_ax.cla()
             with open(img_slice.gt_file, "r") as f_in:
-                img_png = cairosvg.svg2png(f_in.read())
+                # img_png = cairosvg.svg2png(f_in.read())
+                img_png = np.zeros((50, 50))
             loaded_img = Image.open(BytesIO(img_png))
             self.gt_figure_ax.imshow(loaded_img)
             self.gt_figure_ax.set_axis_off()

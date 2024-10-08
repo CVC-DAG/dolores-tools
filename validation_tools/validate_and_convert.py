@@ -254,6 +254,9 @@ class ConversionPipeline:
             raise FileNotFoundError("Invalid File Structure")
 
         for pack in set_path.glob("*"):
+            if not pack.is_dir():
+                continue
+
             if pack.name[0] == ".":
                 _LOGGER.info(f"Skipping hidden folder {pack.name}...")
                 continue

@@ -3,7 +3,8 @@ import tkinter as tk
 from argparse import ArgumentParser, Namespace
 from pathlib import Path
 from tkinter import ttk
-from typing import List
+from tkinter.filedialog import askdirectory
+from typing import List, Optional
 
 from project_data import DoloresProject
 from project_navigator_window import ProjectNavigatorWindow
@@ -12,12 +13,19 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class DebugToolApplication:
-    def __init__(self, path: Path) -> None:
+    def __init__(self, path: Optional[Path]) -> None:
         self.root = tk.Tk()
         self.root.title("DoLoReS Administrator")
         self.root.minsize(800, 600)
 
-        self.data = self._load_data(path)
+        if path is not None:
+            self.path = path
+        else:
+            self.path = Path(
+                askdirectory(mustexist=True, title="Triar Carpeta Arrel de Firebase")
+            )
+
+        self.data = self._load_data(self.path)
 
         self._nav_window = ProjectNavigatorWindow(self.root, self.data)
         self._nav_window.update_project_data(self.data)
@@ -42,9 +50,10 @@ if __name__ == "__main__":
     parser = ArgumentParser()
 
     parser.add_argument(
-        "project_path",
+        "--project_path",
         help="Path to the folder storing DoLoReS user folders",
         type=Path,
+        default=None,
     )
     args = parser.parse_args()
 
