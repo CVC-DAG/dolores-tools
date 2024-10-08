@@ -1,7 +1,7 @@
-onedrive --monitor-interval '30'	\
-	--monitor 			 			\
+onedrive --monitor 					\
 	--download-only 				\
 	--cleanup-local-files 			\
+	--monitor-interval '30'			\
 	--display-running-config 		\
 	--enable-logging 				\
 	--skip-dot-files 				\
