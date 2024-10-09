@@ -44,6 +44,9 @@ class ProjectNavigatorWindow:
             "text_editor": tk.PhotoImage(
                 file=str(Path(__file__).parent / "icons" / "text_editor.png")
             ),
+            "refresh": tk.PhotoImage(
+                file=str(Path(__file__).parent / "icons" / "refresh.png")
+            ),
         }
         self._configure_toolstrip()
 
