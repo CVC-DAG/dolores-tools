@@ -165,6 +165,16 @@ class ProjectNavigatorWindow:
             )
         )
 
+        buttons.append(
+            ttk.Button(
+                self.toolstrip,
+                text="Refresh",
+                image=self.icons["refresh"],
+                command=self.command_refresh,
+                width=32,
+            )
+        )
+
         for ii, button in enumerate(buttons):
             button.grid(column=ii, row=1, sticky="NE")
 
@@ -261,6 +271,9 @@ class ProjectNavigatorWindow:
 
             for torm in elements_to_remove:
                 self.data.remove(torm)
+    
+    def command_refresh(self) -> None:
+        tk.messagebox.showinfo(title="Error", message="Not developed yet :c")
 
     def close_inspection(self, project: str, window: InspectionWindow) -> None:
         window.destroy()
