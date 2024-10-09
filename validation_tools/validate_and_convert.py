@@ -92,10 +92,7 @@ def main(args: Namespace) -> None:
     print(args)
     pipeline = ConversionPipeline(args.overwrite, args.output_path)
 
-    if args.collection is not None:
-        pipeline.convert_from_collection(args.collection)
-
-    elif args.set is not None:
+    if args.set is not None:
         pipeline.convert_from_set(args.set)
 
     elif args.pack is not None:
@@ -253,12 +250,8 @@ class ConversionPipeline:
             _LOGGER.info(str(validation))
             raise FileNotFoundError("Invalid File Structure")
 
-        for pack in set_path.glob("*"):
+        for pack in set_path.glob("CVC.S??.P??"):
             if not pack.is_dir():
-                continue
-
-            if pack.name[0] == ".":
-                _LOGGER.info(f"Skipping hidden folder {pack.name}...")
                 continue
 
             musescore_folder = pack / "MUSESCORE"

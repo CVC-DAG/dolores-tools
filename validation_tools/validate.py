@@ -91,7 +91,7 @@ class FileStructureValidator:
         return self.validation_output
 
     def validate_set(self, set_path: Path) -> ValidationOutput:
-        for pack_path in set_path.glob("*"):
+        for pack_path in set_path.glob("CVC.S??.P??"):
             if pack_path.is_dir():
                 self.validate_pack(pack_path)
 
