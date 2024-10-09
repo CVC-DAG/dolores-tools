@@ -49,32 +49,6 @@ OUTPUT_EXTENSION = "jpg"
 # ET.register_namespace("xmlns:mei", "http://www.music-encoding.org/ns/mei")
 
 
-def process_images(pack_path: Path) -> List[str]:
-    images = FileStructureValidator.find_images(pack_path)
-
-    for img in images:
-        if (
-            img.suffix
-            in set(FileStructureValidator.VALID_EXTENSIONS) - {OUTPUT_EXTENSION}
-            and not (img.parent / f"{img.stem}.{OUTPUT_EXTENSION}").exists()
-        ):
-            run(
-                [
-                    "convert",
-                    str(img),
-                    str(img.parent / f"{img.stem}.{OUTPUT_EXTENSION}"),
-                ],
-                capture_output=True,
-                text=True,
-                check=False,
-            )
-
-    output = list(set(map(lambda x: x.stem, images)))
-
-    _LOGGER.debug(f"Found {len(output)} images in pack: " + ", ".join(output))
-    return output
-
-
 def copy_alignment_files(pack_path: Path, out_path: Path):
     if not (out_path / "MUSICXML").exists():
         shutil.copytree(pack_path / "MUSICXML", out_path / "MUSICXML")
@@ -90,7 +64,7 @@ def copy_alignment_files(pack_path: Path, out_path: Path):
 
 def main(args: Namespace) -> None:
     print(args)
-    pipeline = ConversionPipeline(args.overwrite, args.output_path)
+    pipeline = ConversionPipeline(args.overwrite, args.lax, args.output_path)
 
     if args.set is not None:
         pipeline.convert_from_set(args.set)
@@ -114,6 +88,7 @@ class ConversionPipeline:
     def __init__(
         self,
         overwrite: bool,
+        lax: bool,
         output_path: Path | None,
     ) -> None:
         self.mxml_processor = MXMLProcessor()
@@ -121,6 +96,7 @@ class ConversionPipeline:
         self.validator = FileStructureValidator()
 
         self.overwrite = overwrite
+        self.lax = lax
         self.output_path = output_path
 
         if self.output_path is not None and not self.output_path.exists():
@@ -144,6 +120,36 @@ class ConversionPipeline:
                 on_non_existing()
         else:
             _LOGGER.info(f"Skipping file because it already exists: {file}")
+
+    def process_images(self, pack_path: Path) -> List[str]:
+        images = FileStructureValidator.find_images(pack_path)
+        _LOGGER.info("Images: " + ", ".join(map(str, images)))
+
+        for img in images:
+            if (
+                img.suffix[1:]
+                in set(FileStructureValidator.VALID_EXTENSIONS) - {OUTPUT_EXTENSION}
+                and not (img.parent / f"{img.stem}.{OUTPUT_EXTENSION}").exists()
+            ):
+                cmd = run(
+                    [
+                        "convert",
+                        str(img),
+                        str(img.parent / f"{img.stem}.{OUTPUT_EXTENSION}"),
+                    ],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                if cmd.returncode == 0:
+                    img.unlink()
+            else:
+                _LOGGER.info(f"Ignoring {img}")
+
+        output = list(set(map(lambda x: x.stem, images)))
+
+        _LOGGER.debug(f"Found {len(output)} images in pack: " + ", ".join(output))
+        return output
 
     def convert(self, mscz_files: List[Path]) -> None:
         mxml_files = []
@@ -238,14 +244,11 @@ class ConversionPipeline:
             _LOGGER.info("Output for MuseScore: " + cmd.stderr)
             raise ValueError("Return code for MuseScore was not zero!")
 
-    def convert_from_collection(self, collection_path: Path) -> None:
-        raise NotImplementedError()
-
     def convert_from_set(self, set_path: Path) -> None:
         validation = self.validator.validate_set(set_path)
         mscz_files = []
 
-        if not validation.valid():
+        if not validation.valid() and not self.lax:
             _LOGGER.info("File structure is not valid. Aborting...")
             _LOGGER.info(str(validation))
             raise FileNotFoundError("Invalid File Structure")
@@ -256,8 +259,12 @@ class ConversionPipeline:
 
             musescore_folder = pack / "MUSESCORE"
             if not musescore_folder.exists():
-                raise FileNotFoundError(f"No MuseScore folder in {pack}")
+                if self.lax:
+                    continue
+                else:
+                    raise ValueError(f"No MuseScore folder in pack: {pack}")
             mscz_files += list(musescore_folder.glob("*.mscz"))
+            self.process_images(pack)
 
         self.convert(mscz_files)
         self.validator.reset()
@@ -266,29 +273,33 @@ class ConversionPipeline:
         validation = self.validator.validate_pack(pack_path)
         mscz_files = []
 
-        if not validation.valid():
+        if not validation.valid() and not self.lax:
             _LOGGER.info("File structure is not valid. Aborting...")
             _LOGGER.info(str(validation))
             raise FileNotFoundError("Invalid File Structure")
 
-        musescore_folder = pack_path / "MUSESCORE"
-        if not musescore_folder.exists():
-            raise FileNotFoundError(f"No MuseScore folder in {pack_path}")
-        mscz_files += list(musescore_folder.glob("*.mscz"))
+        self.process_images(pack_path)
 
-        self.convert(mscz_files)
-        self.validator.reset()
+        musescore_folder = pack_path / "MUSESCORE"
+        if musescore_folder.exists():
+            mscz_files += list(musescore_folder.glob("*.mscz"))
+
+            self.convert(mscz_files)
+            self.validator.reset()
+        elif not self.lax:
+            raise FileNotFoundError("")
 
     def convert_from_image(self, img_path: Path) -> None:
         validation = self.validator.validate_image(img_path)
 
-        if not validation.valid():
+        if not validation.valid() and not self.lax:
             _LOGGER.info("File structure is not valid. Aborting...")
             _LOGGER.info(str(validation))
             raise FileNotFoundError("Invalid File Structure")
 
         pack_path = img_path.parent
         mscz_path = pack_path / "MUSESCORE"
+        self.process_images(pack_path)
         mscz_files = list(sorted(mscz_path.glob(f"{img_path.stem}.??.mscz")))
 
         self.convert(mscz_files)
@@ -340,6 +351,11 @@ def setup() -> Namespace:
         "--overwrite",
         action="store_true",
         help="Force overwriting of already converted files.",
+    )
+    parser.add_argument(
+        "--lax",
+        action="store_true",
+        help="Ignore folder validation",
     )
     parser.add_argument(
         "--debug",
