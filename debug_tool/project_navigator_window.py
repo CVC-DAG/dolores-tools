@@ -5,21 +5,26 @@ from pathlib import Path
 from subprocess import run
 from tkinter import Message, PhotoImage, ttk
 from typing import List, Optional
+import os
 
 from inspection_window import InspectionWindow
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 from matplotlib.pyplot import text
 from project_data import DoloresProject
+from main import DebugToolApplication
 
 _LOGGER = logging.getLogger(__name__)
 
 
 class ProjectNavigatorWindow:
-    def __init__(self, root: tk.Tk, data: List[DoloresProject]) -> None:
+    def __init__(self, root: tk.Tk, data: List[DoloresProject], firebasePath: Optional[Path], parentApp: DebugToolApplication) -> None:
         self.root = root
         self.root.protocol("WM_DELETE_WINDOW", self.on_navigator_close)
+        self.root.minsize(800, 600)
         self.data = data
-
+        self.firebasePath = firebasePath
+        self.parentApp = parentApp
+        
         self.root.bind("<Control-c>", self.on_copy_to_clipboard)
 
         self.frame = ttk.Frame(self.root)
@@ -273,7 +278,17 @@ class ProjectNavigatorWindow:
                 self.data.remove(torm)
     
     def command_refresh(self) -> None:
-        tk.messagebox.showinfo(title="Error", message="Not developed yet :c")
+        if str(self.firebasePath)[-7:] == 'uploads':
+            tk.messagebox.showinfo(title="Refresh", message="Please close this message and wait a few seconds")
+            command = "gcloud storage cp -r gs://musicalignapp.appspot.com/uploads " + str(self.firebasePath)[:-7]
+            run(command, shell=True)
+            self.data = self.parentApp._load_data(self.firebasePath)
+            self.parentApp.data = self.data
+            self.treeview.delete(*self.treeview.get_children())
+            self.update_project_data(self.data)
+            tk.messagebox.showinfo(title="Refresh", message="Data updated correctly!")
+        else:    
+            tk.messagebox.showinfo(title="Error", message="Select the uploads folder!")
 
     def close_inspection(self, project: str, window: InspectionWindow) -> None:
         window.destroy()

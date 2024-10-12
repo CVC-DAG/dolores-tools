@@ -7,7 +7,6 @@ from tkinter.filedialog import askdirectory
 from typing import List, Optional
 
 from project_data import DoloresProject
-from project_navigator_window import ProjectNavigatorWindow
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -27,7 +26,10 @@ class DebugToolApplication:
 
         self.data = self._load_data(self.path)
 
-        self._nav_window = ProjectNavigatorWindow(self.root, self.data)
+        # Delay the import until here to avoid circular import
+        from project_navigator_window import ProjectNavigatorWindow
+
+        self._nav_window = ProjectNavigatorWindow(self.root, self.data, self.path, self)
         self._nav_window.update_project_data(self.data)
 
     def _load_data(self, path: Path) -> List[DoloresProject]:
