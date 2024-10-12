@@ -20,7 +20,6 @@ class ProjectNavigatorWindow:
     def __init__(self, root: tk.Tk, data: List[DoloresProject], firebasePath: Optional[Path], parentApp: DebugToolApplication) -> None:
         self.root = root
         self.root.protocol("WM_DELETE_WINDOW", self.on_navigator_close)
-        self.root.minsize(800, 600)
         self.data = data
         self.firebasePath = firebasePath
         self.parentApp = parentApp
