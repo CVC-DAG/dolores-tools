@@ -5,7 +5,6 @@ from pathlib import Path
 from subprocess import run
 from tkinter import Message, PhotoImage, ttk
 from typing import List, Optional
-import os
 
 from inspection_window import InspectionWindow
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
