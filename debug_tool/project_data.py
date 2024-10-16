@@ -297,8 +297,11 @@ class DoloresProject:
             ]
             bbox = BoundingBox(Point(*ann["bbox"][:2]), Point(*ann["bbox"][2:]))
             cat = ann["categoryId"]
+
+            # Temporal fix for category 38 issue
             if(cat == 38 and cat not in id2category.keys()):
                 id2category[cat] = Category("repeat")
+
             category = id2category[cat]
 
             ob_ann = Annotation(bbox, polygon, ann["id"], category)
