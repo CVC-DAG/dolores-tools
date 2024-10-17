@@ -122,6 +122,10 @@ class ConversionPipeline:
             _LOGGER.info(f"Skipping file because it already exists: {file}")
 
     def process_images(self, pack_path: Path) -> List[str]:
+        old_image_path = pack_path / "OLD_IMAGES"
+        if not old_image_path.exists():
+            old_image_path.mkdir()
+
         images = FileStructureValidator.find_images(pack_path)
         _LOGGER.info("Images: " + ", ".join(map(str, images)))
 
@@ -142,7 +146,7 @@ class ConversionPipeline:
                     check=False,
                 )
                 if cmd.returncode == 0:
-                    img.unlink()
+                    img.rename(old_image_path / img.name)
             else:
                 _LOGGER.info(f"Ignoring {img}")
 
