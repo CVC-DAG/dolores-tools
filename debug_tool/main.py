@@ -7,6 +7,7 @@ from tkinter.filedialog import askdirectory
 from typing import List, Optional
 
 from project_data import DoloresProject
+from firebase_data import FirebaseData
 from project_navigator_window import ProjectNavigatorWindow
 
 _LOGGER = logging.getLogger(__name__)
@@ -25,22 +26,11 @@ class DebugToolApplication:
                 askdirectory(mustexist=True, title="Triar Carpeta Arrel de Firebase")
             )
 
-        self.data = self._load_data(self.path)
+        self.firebase_data = FirebaseData(self.path)        
 
-        self._nav_window = ProjectNavigatorWindow(self.root, self.data)
-        self._nav_window.update_project_data(self.data)
+        self._nav_window = ProjectNavigatorWindow(self.root, self.firebase_data)
+        self._nav_window.update_project_data(self.firebase_data.data)
 
-    def _load_data(self, path: Path) -> List[DoloresProject]:
-        output = []
-        for user_folder in [x for x in path.glob("*") if x.is_dir()]:
-            for project in [x for x in user_folder.glob("*") if x.is_dir()]:
-                try:
-                    output.append(DoloresProject(project))
-                except ValueError as e:
-                    _LOGGER.warning(f"Could not load {str(project)}: {e}")
-                except FileNotFoundError as e:
-                    _LOGGER.warning(f"Could not load {str(project)}: {e}")
-        return output
 
     def main(self) -> None:
         self.root.mainloop()

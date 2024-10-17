@@ -71,6 +71,9 @@ class Category(Enum):
     WAVY_LINE = "wavy_line"
     WEDGE = "wedge"
 
+    REPEAT_FORWARD = "repeat_forward1" # Temporal fix
+    REPEAT_BACKWARD = "repeat_backward1" # Temporal fix
+
     def get_category_color(self):
         max_category = len(Category)
         cur_category = list(Category).index(self)
@@ -192,6 +195,8 @@ class DoloresProject:
         self.project_file = path / f"{self.project_name}_final.json"
         self.image_path = path / "images" / f"{self.project_name}.jpg"
 
+        print(self.project_file)
+        
         if not self.project_path.exists():
             raise FileNotFoundError("The path to the project does not exist")
 
@@ -291,7 +296,13 @@ class DoloresProject:
                 for x, y in zip(ann["segmentation"][0::2], ann["segmentation"][1::2])
             ]
             bbox = BoundingBox(Point(*ann["bbox"][:2]), Point(*ann["bbox"][2:]))
-            category = id2category[ann["categoryId"]]
+            cat = ann["categoryId"]
+
+            # Temporal fix for category 38 issue
+            if(cat == 38 and cat not in id2category.keys()):
+                id2category[cat] = Category("repeat")
+
+            category = id2category[cat]
 
             ob_ann = Annotation(bbox, polygon, ann["id"], category)
             ob_ann.offset(im_slice.bbox.tl)
