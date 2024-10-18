@@ -1,6 +1,5 @@
 import logging
 from pathlib import Path
-from tkinter.filedialog import askdirectory
 from typing import List, Optional
 from subprocess import run
 
@@ -27,9 +26,10 @@ class FirebaseData:
         return output
     
     
-    def refresh_data(self) -> None:            
-        command = "gcloud storage cp -r gs://musicalignapp.appspot.com/uploads " + str(self.path)[:-7]
-        run(command, shell=True)
+    def refresh_data(self) -> None:    
+        command = ["gcloud", "storage", "cp", "-r", "gs://musicalignapp.appspot.com/uploads", str(self.path)[:-7]]
+        run(command)
+
         self.data = self._load_data(self.path)
             
         
