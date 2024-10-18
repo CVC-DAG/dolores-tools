@@ -10,16 +10,18 @@ from inspection_window import InspectionWindow
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 from matplotlib.pyplot import text
 from project_data import DoloresProject
+from firebase_data import FirebaseData
 
 _LOGGER = logging.getLogger(__name__)
 
 
 class ProjectNavigatorWindow:
-    def __init__(self, root: tk.Tk, data: List[DoloresProject]) -> None:
+    def __init__(self, root: tk.Tk, firebase_data: FirebaseData) -> None:
         self.root = root
         self.root.protocol("WM_DELETE_WINDOW", self.on_navigator_close)
-        self.data = data
 
+        self.firebase_data = firebase_data
+        
         self.root.bind("<Control-c>", self.on_copy_to_clipboard)
 
         self.frame = ttk.Frame(self.root)
@@ -43,6 +45,9 @@ class ProjectNavigatorWindow:
             ),
             "text_editor": tk.PhotoImage(
                 file=str(Path(__file__).parent / "icons" / "text_editor.png")
+            ),
+            "refresh": tk.PhotoImage(
+                file=str(Path(__file__).parent / "icons" / "refresh.png")
             ),
         }
         self._configure_toolstrip()
@@ -162,6 +167,16 @@ class ProjectNavigatorWindow:
             )
         )
 
+        buttons.append(
+            ttk.Button(
+                self.toolstrip,
+                text="Refresh",
+                image=self.icons["refresh"],
+                command=self.command_refresh,
+                width=32,
+            )
+        )
+
         for ii, button in enumerate(buttons):
             button.grid(column=ii, row=1, sticky="NE")
 
@@ -198,7 +213,7 @@ class ProjectNavigatorWindow:
             return None
         if len(index) == 1:
             selected = index[0]
-            project = self.data[int(selected)]
+            project = self.firebase_data.data[int(selected)]
 
             if selected in self.inspections:
                 tk.messagebox.showinfo(
@@ -224,17 +239,17 @@ class ProjectNavigatorWindow:
     def command_open_in_editor(self) -> None:
         index = self.treeview.selection()
         for ii in map(int, index):
-            run(["open", str(self.data[ii].project_file)])
+            run(["open", str(self.firebase_data.data[ii].project_file)])
 
     def command_open_in_browser(self) -> None:
         index = self.treeview.selection()
         for ii in map(int, index):
-            run(["open", str(self.data[ii].project_path)])
+            run(["open", str(self.firebase_data.data[ii].project_path)])
 
     def command_show_plot(self) -> None:
         index = self.treeview.selection()
         for ii in map(int, index):
-            project = self.data[ii]
+            project = self.firebase_data.data[ii]
             if project.fully_loaded:
                 project.plot(project.id2slice, project.image_path, 0.2)
 
@@ -252,12 +267,22 @@ class ProjectNavigatorWindow:
         if answer:
             elements_to_remove = []
             for ii in index:
-                shutil.rmtree(self.data[int(ii)].project_path)
+                shutil.rmtree(self.firebase_data.data[int(ii)].project_path)
                 self.treeview.delete(ii)
-                elements_to_remove.append(self.data[int(ii)])
+                elements_to_remove.append(self.firebase_data.data[int(ii)])
 
             for torm in elements_to_remove:
-                self.data.remove(torm)
+                self.firebase_data.data.remove(torm)
+    
+    def command_refresh(self) -> None:
+        if str(self.firebase_data.path)[-7:] == 'uploads':
+            tk.messagebox.showinfo(title="Refresh", message="Please close this message and wait a few seconds")
+            self.firebase_data.refresh_data()
+            self.treeview.delete(*self.treeview.get_children())
+            self.update_project_data(self.firebase_data.data)
+            tk.messagebox.showinfo(title="Refresh", message="Data updated correctly!")
+        else:    
+            tk.messagebox.showinfo(title="Error", message="Select the uploads folder!")
 
     def close_inspection(self, project: str, window: InspectionWindow) -> None:
         window.destroy()
