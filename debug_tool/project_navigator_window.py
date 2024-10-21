@@ -49,6 +49,9 @@ class ProjectNavigatorWindow:
             "refresh": tk.PhotoImage(
                 file=str(Path(__file__).parent / "icons" / "refresh.png")
             ),
+            "check_projects": tk.PhotoImage(
+                file=str(Path(__file__).parent / "icons" / "check_projects.png")
+            ),
         }
         self._configure_toolstrip()
 
@@ -177,6 +180,16 @@ class ProjectNavigatorWindow:
             )
         )
 
+        buttons.append(
+            ttk.Button(
+                self.toolstrip,
+                text="Check Projects Done",
+                image=self.icons["check_projects"],
+                command=self.command_check_projects,
+                width=32,
+            )
+        )
+
         for ii, button in enumerate(buttons):
             button.grid(column=ii, row=1, sticky="NE")
 
@@ -283,6 +296,10 @@ class ProjectNavigatorWindow:
             tk.messagebox.showinfo(title="Refresh", message="Data updated correctly!")
         else:    
             tk.messagebox.showinfo(title="Error", message="Select the uploads folder!")
+    
+    def command_check_projects(self) -> None:
+        tk.messagebox.showinfo(title="Error", message="Not developed yet :c")
+
 
     def close_inspection(self, project: str, window: InspectionWindow) -> None:
         window.destroy()
