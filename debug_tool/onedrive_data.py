@@ -1,4 +1,3 @@
-import logging
 from pathlib import Path
 from typing import List, Optional
 from subprocess import run
@@ -6,8 +5,6 @@ import os
 
 from project_data import DoloresProject
 from firebase_data import FirebaseData
-
-_LOGGER = logging.getLogger(__name__)
 
 
 class OneDriveData:
@@ -42,8 +39,7 @@ class OneDriveData:
                     dict_done[file] = True
                 else:
                     dict_done[file] = False
-        print("DICT DONEEEE AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
-        print(dict_done)
+                    
         return dict_done
             
         
