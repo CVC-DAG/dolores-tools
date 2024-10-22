@@ -1,6 +1,5 @@
 from pathlib import Path
 from typing import List, Optional
-from subprocess import run
 import os
 
 from project_data import DoloresProject
@@ -23,13 +22,6 @@ class OneDriveData:
                         output[week].append(file[:-4])
 
         return output
-    
-    
-    def refresh_data(self) -> None:    
-        command = ["gcloud", "storage", "cp", "-r", "gs://musicalignapp.appspot.com/uploads", str(self.path)[:-7]]
-        run(command)
-
-        self.data = self._load_data(self.path)
 
     def compare_with_firebase(self) -> dict:
         dict_done = {}
@@ -39,7 +31,7 @@ class OneDriveData:
                     dict_done[file] = True
                 else:
                     dict_done[file] = False
-                    
+
         return dict_done
             
         
