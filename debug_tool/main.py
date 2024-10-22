@@ -35,7 +35,7 @@ class DebugToolApplication:
             )
 
         self.firebase_data = FirebaseData(self.path)
-        self.onedrive_data = OneDriveData(self.onedrive_path)        
+        self.onedrive_data = OneDriveData(self.onedrive_path, self.firebase_data)        
 
         self._nav_window = ProjectNavigatorWindow(self.root, self.firebase_data, self.onedrive_data)
         self._nav_window.update_project_data(self.firebase_data.data)

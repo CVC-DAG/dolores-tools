@@ -12,6 +12,7 @@ class FirebaseData:
     def __init__(self, path: Optional[Path]) -> None:
         self.path = path
         self.data = self._load_data(self.path)
+        self.list_of_files = self.get_list_of_files()
 
     def _load_data(self, path: Path) -> List[DoloresProject]:
         output = []
@@ -31,5 +32,15 @@ class FirebaseData:
         run(command)
 
         self.data = self._load_data(self.path)
+        self.list_of_files = self.get_list_of_files()
+
+    def get_list_of_files(self) -> List[str]:
+        lst = []
+        for project in self.data:
+            if project.project_name[-2] == '*':
+                lst.append(project.project_name[:-2])
+            else:
+                lst.append(project.project_name)
+        return lst
             
         

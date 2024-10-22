@@ -291,7 +291,7 @@ class ProjectNavigatorWindow:
     
     def command_refresh(self) -> None:
         if str(self.firebase_data.path)[-7:] == 'uploads':
-            tk.messagebox.showinfo(title="Refresh", message="Please close this message and wait a few seconds")
+            tk.messagebox.showinfo(title="Refresh", message="Please close this message and wait a few minutes")
             self.firebase_data.refresh_data()
             self.treeview.delete(*self.treeview.get_children())
             self.update_project_data(self.firebase_data.data)
@@ -301,8 +301,43 @@ class ProjectNavigatorWindow:
     
     def command_check_projects(self) -> None:
         if str(self.onedrive_data.path)[-13:] == 'IMATGES_CLEAN':
-            tk.messagebox.showinfo(title="Refresh", message="Please close this message and wait a few seconds")
-            # Comparar self.onedrive_data amb fitxers json finals de firebase_data.path
+            dict_done = self.onedrive_data.compare_with_firebase()
+            
+            # Open a new window
+            window = tk.Toplevel(self.root)
+            window.title("Check Projects")
+            window.geometry("800x600")
+            
+            # Create a Treeview with two columns
+            tree = ttk.Treeview(window, columns=("Projects", "Folder"), show="headings")
+            tree.heading("Projects", text="Projects")
+            tree.heading("Folder", text="Folder")
+
+            # Define column widths
+            tree.column("Projects", width=200)
+            tree.column("Folder", width=100)
+
+            tree.tag_configure('green', foreground='green')
+            tree.tag_configure('red', foreground='red')
+
+            sorted_dict = dict(sorted(self.onedrive_data.projects.items()))
+
+            # Insert data into the Treeview
+            for key, value in sorted_dict.items():
+                for file in value:
+                    if dict_done[file]:
+                        tree.insert("", "end", values=(file, key), tags=('green',))
+                    else:
+                        tree.insert("", "end", values=(file, key), tags=('red',))
+
+            # Pack the Treeview widget
+            tree.pack(expand=True, fill="both")
+
+            # Add a scrollbar
+            scrollbar = ttk.Scrollbar(window, orient="vertical", command=tree.yview)
+            tree.configure(yscrollcommand=scrollbar.set)
+            scrollbar.pack(side="right", fill="y")
+            
         else:    
             tk.messagebox.showinfo(title="Error", message="Select the IMATGES_CLEAN folder!")
 
