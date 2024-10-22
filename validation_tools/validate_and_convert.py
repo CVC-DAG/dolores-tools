@@ -122,7 +122,7 @@ class ConversionPipeline:
             _LOGGER.info(f"Skipping file because it already exists: {file}")
 
     def process_images(self, pack_path: Path) -> List[str]:
-        old_image_path = pack_path / "OLD_IMAGES"
+        old_image_path = pack_path / "TIFF"
         if not old_image_path.exists():
             old_image_path.mkdir()
 
