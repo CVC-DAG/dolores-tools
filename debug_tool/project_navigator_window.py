@@ -11,16 +11,18 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolb
 from matplotlib.pyplot import text
 from project_data import DoloresProject
 from firebase_data import FirebaseData
+from onedrive_data import OneDriveData
 
 _LOGGER = logging.getLogger(__name__)
 
 
 class ProjectNavigatorWindow:
-    def __init__(self, root: tk.Tk, firebase_data: FirebaseData) -> None:
+    def __init__(self, root: tk.Tk, firebase_data: FirebaseData, onedrive_data: OneDriveData) -> None:
         self.root = root
         self.root.protocol("WM_DELETE_WINDOW", self.on_navigator_close)
 
         self.firebase_data = firebase_data
+        self.onedrive_data = onedrive_data
         
         self.root.bind("<Control-c>", self.on_copy_to_clipboard)
 
@@ -48,6 +50,9 @@ class ProjectNavigatorWindow:
             ),
             "refresh": tk.PhotoImage(
                 file=str(Path(__file__).parent / "icons" / "refresh.png")
+            ),
+            "check_projects": tk.PhotoImage(
+                file=str(Path(__file__).parent / "icons" / "check_projects.png")
             ),
         }
         self._configure_toolstrip()
@@ -177,6 +182,16 @@ class ProjectNavigatorWindow:
             )
         )
 
+        buttons.append(
+            ttk.Button(
+                self.toolstrip,
+                text="Check Projects Done",
+                image=self.icons["check_projects"],
+                command=self.command_check_projects,
+                width=32,
+            )
+        )
+
         for ii, button in enumerate(buttons):
             button.grid(column=ii, row=1, sticky="NE")
 
@@ -276,13 +291,56 @@ class ProjectNavigatorWindow:
     
     def command_refresh(self) -> None:
         if str(self.firebase_data.path)[-7:] == 'uploads':
-            tk.messagebox.showinfo(title="Refresh", message="Please close this message and wait a few seconds")
+            tk.messagebox.showinfo(title="Refresh", message="Please close this message and wait a few minutes")
             self.firebase_data.refresh_data()
             self.treeview.delete(*self.treeview.get_children())
             self.update_project_data(self.firebase_data.data)
             tk.messagebox.showinfo(title="Refresh", message="Data updated correctly!")
         else:    
-            tk.messagebox.showinfo(title="Error", message="Select the uploads folder!")
+            tk.messagebox.showinfo(title="Error", message="Select the IMATGES_CLEAN folder!")
+    
+    def command_check_projects(self) -> None:
+        if str(self.onedrive_data.path)[-13:] == 'IMATGES_CLEAN':
+            dict_done = self.onedrive_data.compare_with_firebase()
+            
+            # Open a new window
+            window = tk.Toplevel(self.root)
+            window.title("Check Projects")
+            window.geometry("800x600")
+            
+            # Create a Treeview with two columns
+            tree = ttk.Treeview(window, columns=("Projects", "Folder"), show="headings")
+            tree.heading("Projects", text="Projects")
+            tree.heading("Folder", text="Folder")
+
+            # Define column widths
+            tree.column("Projects", width=200)
+            tree.column("Folder", width=100)
+
+            tree.tag_configure('green', foreground='green')
+            tree.tag_configure('red', foreground='red')
+
+            sorted_dict = dict(sorted(self.onedrive_data.projects.items()))
+
+            # Insert data into the Treeview
+            for key, value in sorted_dict.items():
+                for file in value:
+                    if dict_done[file]:
+                        tree.insert("", "end", values=(file, key), tags=('green',))
+                    else:
+                        tree.insert("", "end", values=(file, key), tags=('red',))
+
+            # Pack the Treeview widget
+            tree.pack(expand=True, fill="both")
+
+            # Add a scrollbar
+            scrollbar = ttk.Scrollbar(window, orient="vertical", command=tree.yview)
+            tree.configure(yscrollcommand=scrollbar.set)
+            scrollbar.pack(side="right", fill="y")
+            
+        else:    
+            tk.messagebox.showinfo(title="Error", message="Select the IMATGES_CLEAN folder!")
+
 
     def close_inspection(self, project: str, window: InspectionWindow) -> None:
         window.destroy()
