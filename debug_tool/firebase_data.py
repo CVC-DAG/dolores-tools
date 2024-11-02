@@ -2,6 +2,7 @@ import logging
 from pathlib import Path
 from typing import List, Optional
 from subprocess import run
+import os
 
 from project_data import DoloresProject
 
@@ -36,11 +37,15 @@ class FirebaseData:
 
     def get_list_of_files(self) -> List[str]:
         lst = []
+
+        if os.name == 'posix':  # 'posix' means a Unix-like OS (Linux, macOS)
+            split_char = '*'
+        elif os.name == 'nt':   # 'nt' means Windows
+            split_char = '$2'
+        
         for project in self.data:
-            if project.project_name[-2] == '*':
-                lst.append(project.project_name[:-2])
-            else:
-                lst.append(project.project_name)
+            name, *_ = project.project_name.split(split_char, maxsplit=1)
+            lst.append(name)
         return lst
             
         

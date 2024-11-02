@@ -7,6 +7,7 @@ from tkinter import Message, PhotoImage, ttk
 from typing import List, Optional
 
 from inspection_window import InspectionWindow
+from project_comparison_window import ComparisonWindow
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 from matplotlib.pyplot import text
 from project_data import DoloresProject
@@ -301,43 +302,13 @@ class ProjectNavigatorWindow:
     
     def command_check_projects(self) -> None:
         if str(self.onedrive_data.path)[-13:] == 'IMATGES_CLEAN':
-            dict_done = self.onedrive_data.compare_with_firebase()
-            
-            # Open a new window
-            window = tk.Toplevel(self.root)
-            window.title("Check Projects")
-            window.geometry("800x600")
-            
-            # Create a Treeview with two columns
-            tree = ttk.Treeview(window, columns=("Projects", "Folder"), show="headings")
-            tree.heading("Projects", text="Projects")
-            tree.heading("Folder", text="Folder")
 
-            # Define column widths
-            tree.column("Projects", width=200)
-            tree.column("Folder", width=100)
+            bool_dict = self.onedrive_data.compare_with_firebase()            
+            onedrive_files = dict(sorted(self.onedrive_data.projects.items()))
 
-            tree.tag_configure('green', foreground='green')
-            tree.tag_configure('red', foreground='red')
-
-            sorted_dict = dict(sorted(self.onedrive_data.projects.items()))
-
-            # Insert data into the Treeview
-            for key, value in sorted_dict.items():
-                for file in value:
-                    if dict_done[file]:
-                        tree.insert("", "end", values=(file, key), tags=('green',))
-                    else:
-                        tree.insert("", "end", values=(file, key), tags=('red',))
-
-            # Pack the Treeview widget
-            tree.pack(expand=True, fill="both")
-
-            # Add a scrollbar
-            scrollbar = ttk.Scrollbar(window, orient="vertical", command=tree.yview)
-            tree.configure(yscrollcommand=scrollbar.set)
-            scrollbar.pack(side="right", fill="y")
-            
+            window = ComparisonWindow(self.root)
+            window.insert_comparison_data(bool_dict, onedrive_files)
+                        
         else:    
             tk.messagebox.showinfo(title="Error", message="Select the IMATGES_CLEAN folder!")
 

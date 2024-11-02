@@ -12,14 +12,15 @@ class OneDriveData:
         self.projects = self._load_data(self.path)
         self.firebase_data = firebase_data
 
-    def _load_data(self, path: Path) -> List[DoloresProject]:
+    def _load_data(self, path: Path) -> dict[str, list[str]]:
         output = {}
-        for week in os.listdir(path):
-            if os.path.isdir(os.path.join(path, week)):
-                output[week] = []
-                for file in os.listdir(os.path.join(path, week)):
-                    if file[-4:] == '.jpg':
-                        output[week].append(file[:-4])
+
+        for week in path.glob("*"):
+            if week.is_dir():
+                output[week.name] = []
+                for file in week.glob("*"):
+                    if file.name[-4:] == '.jpg':
+                        output[week.name].append(file.name[:-4])
 
         return output
 
