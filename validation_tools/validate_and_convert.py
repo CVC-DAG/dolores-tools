@@ -27,12 +27,14 @@ MUSESCORE_EXECUTABLE = (
     "/home/ptorras/AppImage/MuseScore-Studio-4.4.2.242570931-x86_64.AppImage"
     # "/Applications/MuseScore 4.app/Contents/MacOS/mscore"
     # "/home/pau/AppImage/MuseScore-Studio-4.3.2.241630832-x86_64.AppImage"
+    #"/home/gasbert/Desktop/ProjecteDolores/Dependencies/MuseScore-Studio-4.4.2.242570931-x86_64.AppImage"
 )
 
 VEROVIO_EXECUTABLE = (
     "/home/ptorras/Documents/Repos/verovio/cmake/build-binary-release/verovio"
     # "/Users/ptorras/Documents/Repos/verovio/cmake/verovio"
     # "/home/pau/repos/verovio/cmake/cmake-build-debug/verovio"
+    #"/home/gasbert/Desktop/ProjecteDolores/verovioCode/verovio/cmake/verovio"
 )
 
 RE_FNAME = re.compile(r"(.+)\.([0-9]{2})\.mscz")
