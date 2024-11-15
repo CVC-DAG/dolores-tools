@@ -2,6 +2,7 @@ import logging
 from pathlib import Path
 from typing import List, Optional
 from subprocess import run
+import os
 
 from project_data import DoloresProject
 
@@ -12,6 +13,7 @@ class FirebaseData:
     def __init__(self, path: Optional[Path]) -> None:
         self.path = path
         self.data = self._load_data(self.path)
+        self.list_of_files = self.get_list_of_files()
 
     def _load_data(self, path: Path) -> List[DoloresProject]:
         output = []
@@ -31,5 +33,19 @@ class FirebaseData:
         run(command)
 
         self.data = self._load_data(self.path)
+        self.list_of_files = self.get_list_of_files()
+
+    def get_list_of_files(self) -> List[str]:
+        lst = []
+
+        if os.name == 'posix':  # 'posix' means a Unix-like OS (Linux, macOS)
+            split_char = '*'
+        elif os.name == 'nt':   # 'nt' means Windows
+            split_char = '$2'
+        
+        for project in self.data:
+            name, *_ = project.project_name.split(split_char, maxsplit=1)
+            lst.append(name)
+        return lst
             
         
