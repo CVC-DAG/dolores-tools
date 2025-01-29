@@ -301,9 +301,13 @@ class DoloresProject:
             if(cat == 38 and cat not in id2category.keys()):
                 id2category[cat] = Category("repeat")
 
+            try:
+                category = id2category[cat]
+            except KeyError as e:
+                _LOGGER.warning(f"Could not load project categories for {self.project_file}: {cat}")
 
-            category = id2category[cat]
-
+                return {}, {}, metadata
+            
             ob_ann = Annotation(bbox, polygon, ann["id"], category)
             ob_ann.offset(im_slice.bbox.tl)
             im_slice.anns.append(ob_ann)

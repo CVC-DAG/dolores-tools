@@ -30,7 +30,7 @@ class FirebaseData:
     
     def refresh_data(self) -> None:    
         command = ["gcloud", "storage", "cp", "-r", "gs://musicalignapp.appspot.com/uploads", str(self.path)[:-7]]
-        run(command)
+        run(command, shell=True)
 
         self.data = self._load_data(self.path)
         self.list_of_files = self.get_list_of_files()
