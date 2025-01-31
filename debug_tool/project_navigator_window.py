@@ -302,17 +302,12 @@ class ProjectNavigatorWindow:
             tk.messagebox.showinfo(title="Error", message="Select the IMATGES_CLEAN folder!")
     
     def command_check_projects(self) -> None:
-        if str(self.onedrive_data.path)[-13:] == 'IMATGES_CLEAN':
+        bool_dict = self.onedrive_data.compare_with_firebase()            
+        onedrive_files = dict(sorted(self.onedrive_data.projects.items()))
 
-            bool_dict = self.onedrive_data.compare_with_firebase()            
-            onedrive_files = dict(sorted(self.onedrive_data.projects.items()))
-
-            window = ComparisonWindow(self.root)
-            window.insert_comparison_data(bool_dict, onedrive_files)
-                        
-        else:    
-            tk.messagebox.showinfo(title="Error", message="Select the IMATGES_CLEAN folder!")
-
+        window = ComparisonWindow(self.root)
+        window.insert_comparison_data(bool_dict, onedrive_files)
+        
 
     def close_inspection(self, project: str, window: InspectionWindow) -> None:
         window.destroy()
