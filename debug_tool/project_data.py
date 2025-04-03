@@ -194,8 +194,7 @@ class DoloresProject:
         self.project_name = path.name
         self.project_file = path / f"{self.project_name}_final.json"
         self.image_path = path / "images" / f"{self.project_name}.jpg"
-
-        print(self.project_file)
+     
         
         if not self.project_path.exists():
             raise FileNotFoundError("The path to the project does not exist")
@@ -301,6 +300,7 @@ class DoloresProject:
             # Temporal fix for category 38 issue
             if(cat == 38 and cat not in id2category.keys()):
                 id2category[cat] = Category("repeat")
+
 
             category = id2category[cat]
 

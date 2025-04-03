@@ -7,20 +7,23 @@ from tkinter import Message, PhotoImage, ttk
 from typing import List, Optional
 
 from inspection_window import InspectionWindow
+from project_comparison_window import ComparisonWindow
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 from matplotlib.pyplot import text
 from project_data import DoloresProject
 from firebase_data import FirebaseData
+from onedrive_data import OneDriveData
 
 _LOGGER = logging.getLogger(__name__)
 
 
 class ProjectNavigatorWindow:
-    def __init__(self, root: tk.Tk, firebase_data: FirebaseData) -> None:
+    def __init__(self, root: tk.Tk, firebase_data: FirebaseData, onedrive_data: OneDriveData) -> None:
         self.root = root
         self.root.protocol("WM_DELETE_WINDOW", self.on_navigator_close)
 
         self.firebase_data = firebase_data
+        self.onedrive_data = onedrive_data
         
         self.root.bind("<Control-c>", self.on_copy_to_clipboard)
 
@@ -48,6 +51,9 @@ class ProjectNavigatorWindow:
             ),
             "refresh": tk.PhotoImage(
                 file=str(Path(__file__).parent / "icons" / "refresh.png")
+            ),
+            "check_projects": tk.PhotoImage(
+                file=str(Path(__file__).parent / "icons" / "check_projects.png")
             ),
         }
         self._configure_toolstrip()
@@ -177,6 +183,16 @@ class ProjectNavigatorWindow:
             )
         )
 
+        buttons.append(
+            ttk.Button(
+                self.toolstrip,
+                text="Check Projects Done",
+                image=self.icons["check_projects"],
+                command=self.command_check_projects,
+                width=32,
+            )
+        )
+
         for ii, button in enumerate(buttons):
             button.grid(column=ii, row=1, sticky="NE")
 
@@ -276,13 +292,26 @@ class ProjectNavigatorWindow:
     
     def command_refresh(self) -> None:
         if str(self.firebase_data.path)[-7:] == 'uploads':
-            tk.messagebox.showinfo(title="Refresh", message="Please close this message and wait a few seconds")
+            tk.messagebox.showinfo(title="Refresh", message="Please close this message and wait a few minutes")
             self.firebase_data.refresh_data()
             self.treeview.delete(*self.treeview.get_children())
             self.update_project_data(self.firebase_data.data)
             tk.messagebox.showinfo(title="Refresh", message="Data updated correctly!")
         else:    
-            tk.messagebox.showinfo(title="Error", message="Select the uploads folder!")
+            tk.messagebox.showinfo(title="Error", message="Select the IMATGES_CLEAN folder!")
+    
+    def command_check_projects(self) -> None:
+        if str(self.onedrive_data.path)[-13:] == 'IMATGES_CLEAN':
+
+            bool_dict = self.onedrive_data.compare_with_firebase()            
+            onedrive_files = dict(sorted(self.onedrive_data.projects.items()))
+
+            window = ComparisonWindow(self.root)
+            window.insert_comparison_data(bool_dict, onedrive_files)
+                        
+        else:    
+            tk.messagebox.showinfo(title="Error", message="Select the IMATGES_CLEAN folder!")
+
 
     def close_inspection(self, project: str, window: InspectionWindow) -> None:
         window.destroy()
