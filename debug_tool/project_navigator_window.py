@@ -84,7 +84,8 @@ class ProjectNavigatorWindow:
 
     def _configure_treeview(self) -> None:
         # Display column names and guarantee they have enough width
-        self.treeview.heading("#0", text="Project Name")
+        #self.treeview.heading("#0", text="Project Name")
+        self.treeview.heading("#0", text="Project Name", command=lambda: self._sort_data_by("#0", False))
         self.treeview.column("#0", minwidth=200, width=250)
         self.treeview.heading(
             "author", text="Author", command=lambda: self._sort_data_by("author", False)
@@ -301,17 +302,12 @@ class ProjectNavigatorWindow:
             tk.messagebox.showinfo(title="Error", message="Select the IMATGES_CLEAN folder!")
     
     def command_check_projects(self) -> None:
-        if str(self.onedrive_data.path)[-13:] == 'IMATGES_CLEAN':
+        bool_dict = self.onedrive_data.compare_with_firebase()            
+        onedrive_files = dict(sorted(self.onedrive_data.projects.items()))
 
-            bool_dict = self.onedrive_data.compare_with_firebase()            
-            onedrive_files = dict(sorted(self.onedrive_data.projects.items()))
-
-            window = ComparisonWindow(self.root)
-            window.insert_comparison_data(bool_dict, onedrive_files)
-                        
-        else:    
-            tk.messagebox.showinfo(title="Error", message="Select the IMATGES_CLEAN folder!")
-
+        window = ComparisonWindow(self.root)
+        window.insert_comparison_data(bool_dict, onedrive_files)
+        
 
     def close_inspection(self, project: str, window: InspectionWindow) -> None:
         window.destroy()
@@ -327,10 +323,21 @@ class ProjectNavigatorWindow:
             self.root.quit()
 
     def _sort_data_by(self, column: str, reverse: bool) -> None:
-        data_list = [
+        '''data_list = [
             (self.treeview.set(item, column), item)
             for item in self.treeview.get_children("")
-        ]
+        ]'''
+        if column == "#0":
+            data_list = [
+                (self.treeview.item(item, "text"), item)
+                for item in self.treeview.get_children("")
+            ]
+        else:
+            data_list = [
+                (self.treeview.set(item, column), item)
+                for item in self.treeview.get_children("")
+            ]
+
         data_list.sort(key=lambda t: t[0], reverse=reverse)
 
         # Rearrange the items in the treeview
