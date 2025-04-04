@@ -2,18 +2,20 @@ from . import types as TT
 from lxml import etree
 from lxml.etree import _Element as Element
 
-class Clef(SyntaxNode):
+class Clef:
     def __init__(
         self,
         lxml_object: Element = None,
         sign: TT.ClefSign = None,
-        octave: int = None,
+        octave_change: int = None,
         line: int = None,
+        print_object: bool = None
     ) -> None:
         self.lxml_object = lxml_object
         self.sign = sign
-        self.octave = octave
+        self.octave_change = octave_change
         self.line = line
+        self.print_object = print_object
 
 class TimeSig:
     def __init__(
@@ -35,6 +37,8 @@ class Attributes:
         self.clef = clef
         self.timesig
         self.key
+    
+    
 
 
 

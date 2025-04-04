@@ -1,6 +1,7 @@
 """Classes for operating on MusicXML."""
 
 from typing import List, Tuple
+from symbols import Clef, Attributes, TimeSig
 
 MAX_DIVISIONS = 16383
 
