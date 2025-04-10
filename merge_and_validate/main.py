@@ -3,6 +3,7 @@
 from argparse import ArgumentParser, Namespace
 from pathlib import Path
 from typing import List
+from parse_musicxml import ParserMXML
 
 class Work:
     def __init__(
@@ -20,7 +21,8 @@ class WorkCatalogue:
 
 
 def main(args: Namespace) -> None:
-    ...
+    mxml_parser = ParserMXML(args.dolores_path)
+    mxml_parser.return_faulty()
 
 
 def setup() -> Namespace:
@@ -29,7 +31,8 @@ def setup() -> Namespace:
     parser.add_argument(
         "--dolores_path",
         type=Path,
-        help="Root dolores path",
+        help="For now it will be a CVC.S01.P01 type folder, in the future it will be the " \
+        "general Dolores folder",
     )
 
     return parser.parse_args()

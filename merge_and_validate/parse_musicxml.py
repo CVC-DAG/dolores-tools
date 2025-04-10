@@ -2,21 +2,31 @@ import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple, TypeVar, Union, cast
 from xml.etree import ElementTree as ET
+from fractions import Fraction
+from copy import deepcopy
 
 from mxml import symbol_table as ST
 from mxml import state as MST
-from . import mxml as MXML
-from mxml.symbols import Clef, Attributes, TimeSig
+from mxml import musicxml as MXML
+from mxml.symbols import Clef, TimeSig, Key
+from mxml import types as TT
 MeasureID = Tuple[str, str]
+
+
+class UnsupportedElement(ValueError):
+    """Exception to throw with (currently) unsupported elements."""
 
 
 class ParserMXML():
     """Navigates a MXML file"""
 
-    def __init__(self) -> None:
-        self.state = MST.MeasureState()
+    _ALL_STAVES = -1
+
+    def __init__(self, folder_path) -> None:
+
+        self.state: List[MST.ScoreState] = []
         self.symbol_table = ST.SymbolTable()
-        self.folder_path = None
+        self.folder_path = folder_path
 
         # Super bloated, but necessary since MXML considers each of these kinds of note
         # independent and have to be treated separately.
@@ -32,51 +42,52 @@ class ParserMXML():
     def return_faulty(
         self,
     ) -> None:
+        """
+        Primera passada que comprovi quins scores son erronis comparant els clefs a diferents linies
+        """
         assert self.folder_path is not None, "Please specify which folder to be checked for errors"
         mxml_folder = os.path.join(self.folder_path, "MUSICXML")
 
+        # Iterem segons scores de la carpeta especificada (Ex: CVC.S01.P01) i comparem primera linia amb altres (S'ha de repensar)
         for filename in os.listdir(self.folder_path):
             if filename.lower().endswith('.jpg'):
                 for mxml_file in sorted(os.listdir(mxml_folder)):
-                    if filename[:-4] + '.01' in mxml_file:
-                        
-                        full_path = os.path.join(self.folder_path, filename[:-4])
+                    if filename[:-4] in mxml_file:
+                        # Agafar score state per tenir initial_attributes i last_attributes
+                        mxml_path = os.path.join(mxml_folder, mxml_file)
+                        parse_for_attributes(mxml_path)
+
+                        if filename[:-4] + '.01' not in mxml_file:
+                            #Sol comparar last d'ara amb initial anterior si no es la primera linia
+                            print("INITIAL!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+                            print(self.state.initial_attributes)
+                            print("CURRENT!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+                            print(self.state.current_attributes)
 
 
-    def get_last_attributes(self, mxml_file: Path) -> Attributes:
+    def parse_for_attributes(self, mxml_file: Path) -> None:
+        '''
+        Funció que actualitzi el score state de la linea amb els atributs inicials i els finals, perque es puguin comparar i veure
+          si es canvia de clef amb print_object = Fals (Cas erroni) a la seguent linia
+        '''
         root = ET.parse(mxml_file).getroot()
         for child in root:
             if child.tag == "part":
-                part_dict = self._visit_part(child)
+                self._visit_part(child)
 
-                self.symbol_table.reset()
+                # Haig de mirar-me més a fons la utilitat de la symbol_table
+                #self.symbol_table.reset()
 
 
     def _visit_part(
         self,
         part_element: ET.Element,
     ) -> None:
-        """Visit a part element and produce a sequence of MTN measures.
-
-        Parameters
-        ----------
-        part_element : ET.Element
-            The part element to visit.
-        engr_first_line : Set[MeasureID]
-            Set of measure identifiers for those systems that lie at the beginning of a
-            line (and thus need a refresh of clef and key elements).
-
-        Returns
-        -------
-        Dict[MeasureID, MTN.AST.Measure]
-            A dictionary with measure identifiers as keys and the measure converted to
-            MTN as values.
-        """
         for measure in part_element:
-            measure_mtn = self._preparse_measure(measure)
+            self._visit_measure(measure)
 
-    def _preparse_measure(self, measure: ET.Element) -> List[MTN.AST.Attributes]:
-        attribute_nodes: List[Attributes] = []
+
+    def _visit_measure(self, measure: ET.Element) -> None:
         for child in measure:
             if child.tag == "note":
                 self._preparse_note(child)
@@ -85,19 +96,20 @@ class ParserMXML():
             elif child.tag == "forward":
                 self._backup_or_forward(True, child)
             elif child.tag == "attributes":
-                attribute_nodes.append(self._visit_attributes(child))
-        self.state.change_time(Fraction(0))
-        return self.state.attribute_list
-        # return attribute_nodes
+                self._visit_attributes(child)
+
+        #self.state.change_time(Fraction(0))
+    
 
     def _preparse_note(self, note: ET.Element) -> None:
+        
         print("ENTRA PREPARSE NOTE")
         is_chord = note.find("chord")
         duration_element = note.find("duration")
         if is_chord is not None or duration_element is None:
             return None
 
-        duration = self._visit_duration(duration_element)
+        duration = int(duration_element.text)
         print(self.state)
         self.state.set_buffer(duration)
         print(self.state)
@@ -115,8 +127,7 @@ class ParserMXML():
             value_element is not None and value_element.text is not None
         ), "Empty or invalid backup element"
 
-        value = int(value_element.text)
-        increment = Fraction(value, self.state.divisions)
+        increment = int(value_element.text)
         if not forward:
             increment *= -1
         self.state.increment_time(increment)
@@ -125,8 +136,8 @@ class ParserMXML():
     def _visit_attributes(
             self,
             attributes: ET.Element,
-        ) -> Attributes:
-            """Process MXML attributes at a specific point in time.
+        ) -> None:
+            """Process MXML attributes at a specific point in time and updates them in the score state
 
             Parameters
             ----------
@@ -135,7 +146,7 @@ class ParserMXML():
 
             Returns
             -------
-            MTN.AST.Attributes
+            MTN.AST.MST.Attributes
                 The resulting attributes in MTN format.
             """
             self.state.move_buffer()
@@ -147,7 +158,7 @@ class ParserMXML():
             for child in attributes:
                 if child.tag == "divisions":
                     if child.text is not None:
-                        self.state.divisions = int(child.text)
+                        self.state._divisions = int(child.text)
                 elif child.tag == "staves":
                     nstaves = child.text
                     nstaves = cast(str, nstaves)
@@ -159,41 +170,33 @@ class ParserMXML():
                 elif child.tag == "clef":
                     clef_elements.append(child)
 
-            output_attributes = Attributes(
-                self.state._staves,
-                self.state.current_time,
-            )
+            output_attributes = MST.Attributes(attributes)
 
+            # Revisar que sha de fer en el cas de tenir mes d'una clef en un attributes
             for clef_elm in clef_elements:
                 clef = self._visit_clef(clef_elm)
-                output_attributes.clef = clef
+                print(clef)
+            
+            output_attributes.clef = clef
 
             for timesig_elm in timesig_elements:
-                timesig, staff = self._visit_time(timesig_elm)
-                if staff == self._ALL_STAVES:
-                    for new_staff in range(1, self.state.nstaves + 1):
-                        new_timesig = deepcopy(timesig)
-                        token_visitor = VisitorGetTokens()
-                        tokens = token_visitor.visit_ast(new_timesig)
-                        for tok in tokens:
-                            tok.token_id = self.symbol_table.give_identifier()
-                            tok.position = MTN.MS.StaffPosition(None, None)
-                        output_attributes.set_timesig(new_timesig, new_staff)
-                else:
-                    output_attributes.timesig[staff] = timesig
-
+                timesig = self._visit_time(timesig_elm)
+            
+            output_attributes.timesig = timesig
+                
             # Merge once to account for the new clef and time, since these are needed for
             # the correct position of key accidentals (could merge a dict and pass it as
             # a parameter to the key processing function but I am lazy).
+
             self.state.attributes = output_attributes
 
             for key_elm in key_elements:
                 key_processed = self._visit_key(key_elm)
-                output_attributes.key |= key_processed
+            
+            output_attributes.key = key_processed
 
             self.state.attributes = output_attributes
 
-            return output_attributes
 
 
     def _visit_clef(
@@ -206,11 +209,11 @@ class ParserMXML():
             sign_element is not None and sign_element.text is not None
         ), "Invalid clef symbol without a sign"
 
-        clef_type = MXML.TT.ClefSign(sign_element.text)
+        clef_type = TT.ClefSign(sign_element.text)
 
-        if clef_type in {MXML.TT.ClefSign.PERCUSSION, MXML.TT.ClefSign.NONE}:
-            clef_type = MXML.TT.ClefSign.G
-        elif clef_type in {MXML.TT.ClefSign.TAB, MXML.TT.ClefSign.JIANPU}:
+        if clef_type in {TT.ClefSign.PERCUSSION, TT.ClefSign.NONE}:
+            clef_type = TT.ClefSign.G
+        elif clef_type in {TT.ClefSign.TAB, TT.ClefSign.JIANPU}:
             raise ValueError("Clef type is not supported")
 
         line_element = clef.find("line")
@@ -242,23 +245,9 @@ class ParserMXML():
     def _visit_time(
         self,
         time: ET.Element,
-    ) -> Tuple[MTN.AST.TimeSignature, int]:
-        """Generate time signature object from MXML "time" object.
-
-        Parameters
-        ----------
-        time : ET.Element
-            MXML time object.
-
-        Returns
-        -------
-        MTN.AST.TimeSignature
-            The processed MTN time object.
-        int
-            Staff where this element should be placed. Positive integer for a specific
-            placement or self._ALL_STAVES if it applies to all staves.
-        """
-        time_type = MXML.TT.TimeSymbol(time.get("symbol", "normal"))
+    ) -> TimeSig:
+        
+        time_type = TT.TimeSymbol(time.get("symbol", "normal"))
         staff_val: Optional[str] = time.get("number", None)
         if staff_val is None:
             staff = self._ALL_STAVES
@@ -267,50 +256,27 @@ class ParserMXML():
 
         beats, beat_type = self._extract_beats_and_type(time)
 
-        time_value, parse_tree = self.parse_time(beats, beat_type)
-        output = MTN.AST.TimeSignature(None, None, time_value)
+        print("BEATS: ")
+        print(beats)
+        print("BEAT TYPE: ")
+        print(beat_type)
 
-        if time.get("print-object", "yes") == "no":
-            return output, staff
+        print_object = time.get("print-object", "yes") == "yes"
 
-        if time_type == MXML.TT.TimeSymbol.NORMAL:
-            output.compound_time_signature = parse_tree
-
-            interchangeable = time.find("interchangeable")
-            if interchangeable is not None:
-                int_beats, int_beat_type = self._extract_beats_and_type(interchangeable)
-                _, interch_parse = self.parse_time(int_beats, int_beat_type)
-                interch = [
-                    MTN.AST.Token(
-                        MTN.TT.TokenType.TIME_RELATION,
-                        {"type": MTN.TT.TimeRelation.TR_EQUALS},
-                        MTN.MS.StaffPosition(None, None),
-                        self.symbol_table.give_identifier(),
-                    )
-                ] + interch_parse
-                output.compound_time_signature += interch
-        elif time_type == MXML.TT.TimeSymbol.CUT:
-            output.time_symbol = MTN.AST.Token(
-                MTN.TT.TokenType.TIMESIG,
-                {"type": MTN.TT.TimeSymbol.TS_CUT},
-                MTN.MS.StaffPosition(None, None),
-                self.symbol_table.give_identifier(),
-            )
-        elif time_type == MXML.TT.TimeSymbol.COMMON:
-            output.time_symbol = MTN.AST.Token(
-                MTN.TT.TokenType.TIMESIG,
-                {"type": MTN.TT.TimeSymbol.TS_COMMON},
-                MTN.MS.StaffPosition(None, None),
-                self.symbol_table.give_identifier(),
-            )
-        elif time_type == MXML.TT.TimeSymbol.NOTE:
+        if time_type == TT.TimeSymbol.NOTE:
             raise UnsupportedElement("Notes as time signatures are not supported")
-        elif time_type == MXML.TT.TimeSymbol.DOTTED_NOTE:
+        elif time_type == TT.TimeSymbol.DOTTED_NOTE:
             raise UnsupportedElement("Notes as time signatures are not supported")
-        elif time_type == MXML.TT.TimeSymbol.SINGLE_NUMBER:
+        elif time_type == TT.TimeSymbol.SINGLE_NUMBER:
             raise UnsupportedElement("Single nums as time signatures are not supported")
 
-        return output, staff
+        return TimeSig(
+            time,
+            Tuple(beats, beat_type),
+            staff,
+            time_type,
+            print_object
+        )
     
     def _extract_beats_and_type(node: ET.Element) -> Tuple[List[str], List[str]]:
         """Extract the beat and beat_type elements from a time node.
@@ -338,3 +304,108 @@ class ParserMXML():
         ), "Uneven number of beats and beat types in time signature."
 
         return beats, beat_type
+    
+    def _visit_key(
+        self,
+        key: ET.Element,
+    ) -> Dict[int, Key]:
+        """Visit a key element in MXML and get its information.
+
+        Parameters
+        ----------
+        key : ET.Element
+            The MXML key node.
+
+        Returns
+        -------
+        Dict[int, MTN.AST.Key]
+            A dictionary mapping each staff with the corresponding key.
+        """
+        
+        if key[0].tag in {"cancel", "fifths"}:
+            return self._key_fifths(key)
+        return self._key_alters(key)
+    
+
+    def _key_fifths(
+        self,
+        key: ET.Element
+    ) -> Key:
+        """Generate the key element denoted by a number of fifths upward or downward.
+
+        Parameters
+        ----------
+        key : ET.Element
+            Element in the MXML tree for a key.
+        staff: int
+            What staff this key applies to.
+
+        Returns
+        -------
+        MTN.AST.Key
+            Same key in MTN format.
+        """
+        for child in key:
+            if child.tag == "cancel":
+                if child.text is None:
+                    continue
+                cancel = int(child.text)
+
+            elif child.tag == "fifths":
+                if child.text is None:
+                    continue
+                fifths = int(child.text)
+
+        print_object_element = key.get("print-object", "yes")
+        print_object = print_object_element == "yes"
+
+        return Key(key, is_fifths=True, print_object=print_object, fifths=fifths, cancel=cancel)
+    
+
+    def _key_alters(
+        self,
+        key: ET.Element
+    ) -> Key:
+        """Process a key using a list of arbitrary alterations.
+
+        Parameters
+        ----------
+        key : ET.Element
+            MXML element with the key information.
+
+        Returns
+        -------
+        MTN.AST.Key
+            Same key in MTN format.
+        """
+        alter_steps = []
+        alter_values = []
+        alter_symbols = []
+
+        for child in key:
+            if child.tag == "key-step":
+                if child.text is None:
+                    raise ValueError("Invalid empty key-step element.")
+                alter_steps.append(MXML.Step[child.text])
+
+            elif child.tag == "key-alter":
+                if child.text is None:
+                    raise ValueError("Invalid empty key-step element.")
+                value = int(child.text)
+                alter_values.append(value)
+
+                alter_symbols.append(
+                    TT.AccidentalValue.SHARP
+                    if value > 0
+                    else TT.AccidentalValue.FLAT
+                )
+
+            elif child.tag == "key-accidental":
+                if child.text is not None:
+                    alter_symbols[-1] = TT.AccidentalValue(child.text)
+
+        print_object_element = key.get("print-object", "yes")
+        print_object = print_object_element == "yes"
+
+        return Key(key, is_fifths=False, print_object=print_object, alter_steps=alter_steps, 
+                   alter_value=alter_values, alter_accidentals=alter_symbols)
