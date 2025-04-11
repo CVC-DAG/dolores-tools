@@ -4,8 +4,9 @@ from typing import List, Tuple
 from lxml.etree import _Element as Element
 from fractions import Fraction
 from sortedcontainers import SortedDict
+from copy import deepcopy
 
-from symbols import Clef, TimeSig, Key
+from .symbols import Clef, TimeSig, Key
 
 
 MAX_DIVISIONS = 16383
@@ -53,6 +54,15 @@ class Attributes:
             f"{self.timesig}\n"
             "=======================\n"
         )
+    
+    def copy(self) -> "Attributes":
+        
+        return Attributes(
+            deepcopy(self.lxml_object),
+            deepcopy(self.clef),
+            deepcopy(self.timesig),
+            deepcopy(self.key),
+        )
 
 
 class ScoreState:
@@ -64,9 +74,7 @@ class ScoreState:
 
         # The initial state for a measure. Posterior attributes are computed by
         # composing these initial attributes with a stack of saved attribute elements.
-        self.initial_attributes: Attributes = Attributes.make_empty(
-            self.nstaves, self.current_time, True
-        )
+        self.initial_attributes: Attributes = Attributes()
 
         # The attributes at the current time step (composing the initial state with
         # the stack of states).
@@ -90,9 +98,7 @@ class ScoreState:
         assert self.current_time == 0, "Changing number of staves mid-measure"
         assert len(self.stack) == 0, "Changing number of staves mid-measure"
 
-        self.initial_attributes.change_staves(nstaves, True)
-        self.current_attributes = self.initial_attributes.copy()
-
+        #self.current_attributes = self.initial_attributes.copy()
         self.nstaves = nstaves
 
     def set_buffer(self, buffer: int) -> None:

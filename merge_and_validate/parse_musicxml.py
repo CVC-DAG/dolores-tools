@@ -5,7 +5,7 @@ from xml.etree import ElementTree as ET
 from fractions import Fraction
 from copy import deepcopy
 
-from mxml import symbol_table as ST
+#from mxml import symbol_table as ST
 from mxml import state as MST
 from mxml import musicxml as MXML
 from mxml.symbols import Clef, TimeSig, Key
@@ -24,9 +24,10 @@ class ParserMXML():
 
     def __init__(self, folder_path) -> None:
 
-        self.state: List[MST.ScoreState] = []
-        self.symbol_table = ST.SymbolTable()
+        self.states: List[MST.ScoreState] = []
+        #self.symbol_table = ST.SymbolTable()
         self.folder_path = folder_path
+        #self.actual_line: int = None
 
         # Super bloated, but necessary since MXML considers each of these kinds of note
         # independent and have to be treated separately.
@@ -36,7 +37,7 @@ class ParserMXML():
             grace: None for grace in [False, True]
         }'''
 
-        #self.group_stack: GroupStack = GroupStack(self.state, self.symbol_table)
+        #self.group_stack: GroupStack = GroupStack(self.states, self.symbol_table)
         #self.last_measure: Optional[MTN.AST.Measure] = None
 
     def return_faulty(
@@ -47,6 +48,7 @@ class ParserMXML():
         """
         assert self.folder_path is not None, "Please specify which folder to be checked for errors"
         mxml_folder = os.path.join(self.folder_path, "MUSICXML")
+        #self.actual_line = 0
 
         # Iterem segons scores de la carpeta especificada (Ex: CVC.S01.P01) i comparem primera linia amb altres (S'ha de repensar)
         for filename in os.listdir(self.folder_path):
@@ -54,20 +56,26 @@ class ParserMXML():
                 for mxml_file in sorted(os.listdir(mxml_folder)):
                     if filename[:-4] in mxml_file:
                         # Agafar score state per tenir initial_attributes i last_attributes
+                        print("Processing: " + mxml_file)
+                        self.states.append(MST.ScoreState())
                         mxml_path = os.path.join(mxml_folder, mxml_file)
-                        parse_for_attributes(mxml_path)
+                        self.parse_for_attributes(mxml_path)
 
-                        if filename[:-4] + '.01' not in mxml_file:
+                        print("INITIAL!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+                        print(self.states[-1].initial_attributes)
+                        print("CURRENT!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+                        print(self.states[-1].current_attributes)
+
+                        '''if filename[:-4] + '.01' not in mxml_file:
                             #Sol comparar last d'ara amb initial anterior si no es la primera linia
-                            print("INITIAL!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-                            print(self.state.initial_attributes)
-                            print("CURRENT!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-                            print(self.state.current_attributes)
+                            print("Linia no inicial")'''
+                break
+
 
 
     def parse_for_attributes(self, mxml_file: Path) -> None:
         '''
-        Funció que actualitzi el score state de la linea amb els atributs inicials i els finals, perque es puguin comparar i veure
+        Funció que actualitzi el score states de la linea amb els atributs inicials i els finals, perque es puguin comparar i veure
           si es canvia de clef amb print_object = Fals (Cas erroni) a la seguent linia
         '''
         root = ET.parse(mxml_file).getroot()
@@ -98,24 +106,22 @@ class ParserMXML():
             elif child.tag == "attributes":
                 self._visit_attributes(child)
 
-        #self.state.change_time(Fraction(0))
+        #self.states.change_time(Fraction(0))
     
 
     def _preparse_note(self, note: ET.Element) -> None:
         
-        print("ENTRA PREPARSE NOTE")
         is_chord = note.find("chord")
         duration_element = note.find("duration")
         if is_chord is not None or duration_element is None:
             return None
 
         duration = int(duration_element.text)
-        print(self.state)
-        self.state.set_buffer(duration)
-        print(self.state)
-        self.state.move_buffer()
-        print(self.state)
-        print("SURT PREPARSE_NOTE")
+        #print(self.states[-1])
+        self.states[-1].set_buffer(duration)
+        #print(self.states[-1])
+        self.states[-1].move_buffer()
+        #print(self.states[-1])
 
     def _backup_or_forward(
         self,
@@ -130,14 +136,14 @@ class ParserMXML():
         increment = int(value_element.text)
         if not forward:
             increment *= -1
-        self.state.increment_time(increment)
+        self.states[-1].increment_time(increment)
 
 
     def _visit_attributes(
             self,
             attributes: ET.Element,
         ) -> None:
-            """Process MXML attributes at a specific point in time and updates them in the score state
+            """Process MXML attributes at a specific point in time and updates them in the score states
 
             Parameters
             ----------
@@ -149,7 +155,7 @@ class ParserMXML():
             MTN.AST.MST.Attributes
                 The resulting attributes in MTN format.
             """
-            self.state.move_buffer()
+            self.states[-1].move_buffer()
 
             key_elements: List[ET.Element] = []
             timesig_elements: List[ET.Element] = []
@@ -158,11 +164,11 @@ class ParserMXML():
             for child in attributes:
                 if child.tag == "divisions":
                     if child.text is not None:
-                        self.state._divisions = int(child.text)
+                        self.states[-1]._divisions = int(child.text)
                 elif child.tag == "staves":
                     nstaves = child.text
                     nstaves = cast(str, nstaves)
-                    self.state.change_staves(int(nstaves))
+                    self.states[-1].change_staves(int(nstaves))
                 elif child.tag == "key":
                     key_elements.append(child)
                 elif child.tag == "time":
@@ -175,27 +181,29 @@ class ParserMXML():
             # Revisar que sha de fer en el cas de tenir mes d'una clef en un attributes
             for clef_elm in clef_elements:
                 clef = self._visit_clef(clef_elm)
-                print(clef)
-            
-            output_attributes.clef = clef
+                #print(clef)
+                output_attributes.clef = clef
 
             for timesig_elm in timesig_elements:
                 timesig = self._visit_time(timesig_elm)
-            
-            output_attributes.timesig = timesig
+                output_attributes.timesig = timesig
                 
             # Merge once to account for the new clef and time, since these are needed for
             # the correct position of key accidentals (could merge a dict and pass it as
             # a parameter to the key processing function but I am lazy).
 
-            self.state.attributes = output_attributes
+            self.states[-1].attributes = output_attributes
 
             for key_elm in key_elements:
                 key_processed = self._visit_key(key_elm)
-            
-            output_attributes.key = key_processed
+                output_attributes.key = key_processed
 
-            self.state.attributes = output_attributes
+            self.states[-1].attributes = output_attributes
+            
+            if self.states[-1].initial_attributes.lxml_object == None:
+                self.states[-1].initial_attributes = output_attributes
+
+
 
 
 
@@ -256,11 +264,6 @@ class ParserMXML():
 
         beats, beat_type = self._extract_beats_and_type(time)
 
-        print("BEATS: ")
-        print(beats)
-        print("BEAT TYPE: ")
-        print(beat_type)
-
         print_object = time.get("print-object", "yes") == "yes"
 
         if time_type == TT.TimeSymbol.NOTE:
@@ -272,13 +275,13 @@ class ParserMXML():
 
         return TimeSig(
             time,
-            Tuple(beats, beat_type),
+            (beats, beat_type),
             staff,
             time_type,
             print_object
         )
     
-    def _extract_beats_and_type(node: ET.Element) -> Tuple[List[str], List[str]]:
+    def _extract_beats_and_type(self, node: ET.Element) -> Tuple[List[str], List[str]]:
         """Extract the beat and beat_type elements from a time node.
 
         Compound time signatures are defined in MusicXML by a sequence of "beat" and
@@ -345,6 +348,8 @@ class ParserMXML():
         MTN.AST.Key
             Same key in MTN format.
         """
+        cancel = None
+
         for child in key:
             if child.tag == "cancel":
                 if child.text is None:

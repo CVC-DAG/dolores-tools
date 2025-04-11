@@ -1,8 +1,10 @@
-from . import types as TT
-
 from typing import Optional, List
 from lxml.etree import _Element as Element
+from copy import deepcopy
+
+from . import types as TT
 from . import musicxml as MXML
+
 
 class Clef:
     def __init__(
@@ -26,6 +28,14 @@ class Clef:
             f" {self.octave_change}\nLine: {self.line}\nPrint_Object:"
             f" {self.print_object}"
         ) + "\n - - -\n"
+    
+    def copy(self) -> "Clef":
+        return Clef(
+            deepcopy(self.lxml_object),
+            self.clef.copy(),
+            self.timesig.copy(),
+            self.key.copy(),
+        )
 
 class TimeSig:
     def __init__(
@@ -46,7 +56,7 @@ class TimeSig:
         """Get simple representation for debugging purposes."""
         return (
             f"========= TIME_SIG =========\nTime_Value: {self.time_value}\nStaff:"
-            f" {self.staff}\nTime_Type: {self.line}\nPrint_Object:"
+            f" {self.staff}\nTime_Type: {self.time_type}\nPrint_Object:"
             f" {self.print_object}"
         ) + "\n - - -\n"
     
