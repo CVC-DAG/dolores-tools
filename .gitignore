@@ -5,3 +5,4 @@
 *.pyc
 
 test_data/
+merge_and_validate/faulty_files.json

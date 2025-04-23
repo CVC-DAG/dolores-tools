@@ -1,14 +1,13 @@
 import os
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple, TypeVar, Union, cast
+from typing import Dict, List, Optional, Tuple, cast
 from xml.etree import ElementTree as ET
-from fractions import Fraction
-from copy import deepcopy
+import json
 
 #from mxml import symbol_table as ST
 from mxml import state as MST
 from mxml import musicxml as MXML
-from mxml.symbols import Clef, TimeSig, Key
+from mxml.symbols import Clef, TimeSig, Key, Errors
 from mxml import types as TT
 MeasureID = Tuple[str, str]
 
@@ -22,11 +21,14 @@ class ParserMXML():
 
     _ALL_STAVES = -1
 
-    def __init__(self, folder_path) -> None:
+    def __init__(self, folder_path, debug_prints) -> None:
 
         self.states: List[MST.ScoreState] = []
         #self.symbol_table = ST.SymbolTable()
         self.folder_path = folder_path
+        self.debug_prints = debug_prints
+        self.error_dict = {}
+
         #self.actual_line: int = None
 
         # Super bloated, but necessary since MXML considers each of these kinds of note
@@ -47,30 +49,69 @@ class ParserMXML():
         Primera passada que comprovi quins scores son erronis comparant els clefs a diferents linies
         """
         assert self.folder_path is not None, "Please specify which folder to be checked for errors"
-        mxml_folder = os.path.join(self.folder_path, "MUSICXML")
-        #self.actual_line = 0
+        last_mxml = None
 
-        # Iterem segons scores de la carpeta especificada (Ex: CVC.S01.P01) i comparem primera linia amb altres (S'ha de repensar)
-        for filename in os.listdir(self.folder_path):
-            if filename.lower().endswith('.jpg'):
-                for mxml_file in sorted(os.listdir(mxml_folder)):
-                    if filename[:-4] in mxml_file:
-                        # Agafar score state per tenir initial_attributes i last_attributes
-                        print("Processing: " + mxml_file)
-                        self.states.append(MST.ScoreState())
-                        mxml_path = os.path.join(mxml_folder, mxml_file)
-                        self.parse_for_attributes(mxml_path)
+        for folder in os.listdir(self.folder_path):
+            folder_path = os.path.join(self.folder_path, folder)
+            if os.path.isdir(folder_path):
+                print("Processing folder: " + folder)
+                mxml_folder = os.path.join(folder_path, "MUSICXML")
+                # Iterem segons cada carpeta (Ex: CVC.S01.P01) i comparem cada linia amb la seguent
+                for score in os.listdir(folder_path):
+                    if score.lower().endswith('.jpg'):
+                        for mxml_file in sorted(os.listdir(mxml_folder)):
+                            if score[:-4] in mxml_file:
+                                # Agafar score state per tenir initial_attributes i last_attributes
+                                print("Processing line: " + mxml_file)
+                                self.states.append(MST.ScoreState())
+                                mxml_path = os.path.join(mxml_folder, mxml_file)
+                                self.parse_for_attributes(mxml_path)
 
-                        print("INITIAL!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-                        print(self.states[-1].initial_attributes)
-                        print("CURRENT!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-                        print(self.states[-1].current_attributes)
+                                if(self.debug_prints):
+                                    print("INITIAL!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+                                    print(self.states[-1].initial_attributes)
+                                    print("CURRENT!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+                                    print(self.states[-1].current_attributes)
+                                
+                                if last_mxml is not None:
+                                    self.check_attributes(folder, score[:-4], mxml_file)
 
-                        '''if filename[:-4] + '.01' not in mxml_file:
-                            #Sol comparar last d'ara amb initial anterior si no es la primera linia
-                            print("Linia no inicial")'''
-                break
+                                last_mxml = mxml_file
+                        last_mxml = None
 
+        with open("faulty_files.json", "w") as json_file:
+            json.dump(self.error_dict, json_file, indent=4)
+
+
+    def check_attributes(self, folder: str, score: str, mxml_file: str) -> None:
+        # Comprovar diferencies entre clef, key i time de self.states[-2].current_attributes i self.states[-1].initial_attributes
+
+        # CLEF
+        error = self.states[-2].current_attributes.clef.compare(self.states[-1].initial_attributes.clef) 
+        if error is not None and not self.states[-1].initial_attributes.clef.print_object:
+            if folder not in self.error_dict:
+                self.error_dict[folder] = {}
+            if score not in self.error_dict[folder]:
+                self.error_dict[folder][score] = {}
+            self.error_dict[folder][score][mxml_file] = error.value
+        
+        # KEY
+        error = self.states[-2].current_attributes.key.compare(self.states[-1].initial_attributes.key)
+        if error is not None and not self.states[-1].initial_attributes.key.print_object:
+            if folder not in self.error_dict:
+                self.error_dict[folder] = {}
+            if score not in self.error_dict[folder]:
+                self.error_dict[folder][score] = {}
+            self.error_dict[folder][score][mxml_file] = error.value
+
+        # TIMESIG
+        error =  self.states[-2].current_attributes.timesig.compare(self.states[-1].initial_attributes.timesig)
+        if error is not None and not self.states[-1].initial_attributes.timesig.print_object:
+            if folder not in self.error_dict:
+                self.error_dict[folder] = {}
+            if score not in self.error_dict[folder]:
+                self.error_dict[folder][score] = {}
+            self.error_dict[folder][score][mxml_file] = error.value
 
 
     def parse_for_attributes(self, mxml_file: Path) -> None:
@@ -200,7 +241,7 @@ class ParserMXML():
 
             self.states[-1].attributes = output_attributes
             
-            if self.states[-1].initial_attributes.lxml_object == None:
+            if self.states[-1].initial_attributes.xml_object == None:
                 self.states[-1].initial_attributes = output_attributes
 
 

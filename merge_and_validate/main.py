@@ -21,7 +21,7 @@ class WorkCatalogue:
 
 
 def main(args: Namespace) -> None:
-    mxml_parser = ParserMXML(args.dolores_path)
+    mxml_parser = ParserMXML(args.dolores_path, args.debug_prints)
     mxml_parser.return_faulty()
 
 
@@ -34,6 +34,8 @@ def setup() -> Namespace:
         help="For now it will be a CVC.S01.P01 type folder, in the future it will be the " \
         "general Dolores folder",
     )
+
+    parser.add_argument('--debug_prints', action='store_true', help='Print all attributes')
 
     return parser.parse_args()
 

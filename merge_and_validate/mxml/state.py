@@ -1,7 +1,7 @@
 """Classes for operating on MusicXML."""
 
 from typing import List, Tuple
-from lxml.etree import _Element as Element
+from xml.etree import ElementTree as ET
 from fractions import Fraction
 from sortedcontainers import SortedDict
 from copy import deepcopy
@@ -15,12 +15,12 @@ MAX_DIVISIONS = 16383
 class Attributes:
     def __init__(
         self,
-        lxml_object: Element = None,
+        xml_object: ET.Element = None,
         clef: Clef = None,
         timesig: TimeSig = None,
         key: Key = None
     ) -> None:
-        self.lxml_object = lxml_object
+        self.xml_object = xml_object
         self.clef = clef
         self.timesig = timesig
         self.key = key
@@ -37,7 +37,7 @@ class Attributes:
             An attributes object to merge with the current one.
         """
 
-        self.lxml_object = other.lxml_object
+        self.xml_object = other.xml_object
 
         if other.key is not None:
             self.key = other.key
@@ -58,7 +58,7 @@ class Attributes:
     def copy(self) -> "Attributes":
         
         return Attributes(
-            deepcopy(self.lxml_object),
+            deepcopy(self.xml_object),
             deepcopy(self.clef),
             deepcopy(self.timesig),
             deepcopy(self.key),

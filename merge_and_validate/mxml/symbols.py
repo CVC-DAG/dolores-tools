@@ -1,21 +1,68 @@
 from typing import Optional, List
-from lxml.etree import _Element as Element
+from xml.etree import ElementTree as ET
+
 from copy import deepcopy
+from enum import Enum
 
 from . import types as TT
 from . import musicxml as MXML
 
+SHARP_ORDER = ['F', 'C', 'G', 'D', 'A', 'E', 'B']
+FLAT_ORDER = ['B', 'E', 'A', 'D', 'G', 'C', 'F']
+
+TONIC_TO_FIFTHS: dict[tuple[str, int], int] = {
+    # naturals
+    ("C",  0):  0,
+    ("D",  0): +2,
+    ("E",  0): +4,
+    ("F",  0): -1,
+    ("G",  0): +1,
+    ("A",  0): +3,
+    ("B",  0): +5,
+
+    # flats
+    ("C", -1): -7,   # C♭  major (7♭)
+    ("D", -1): -5,   # D♭  major (5♭)
+    ("E", -1): -3,   # E♭  major (3♭)
+    ("F", -1): -6,   # F♭  enharm. (=E) (6♭) – rarely used
+    ("G", -1): -6,   # G♭  major (6♭)
+    ("A", -1): -4,   # A♭  major (4♭)
+    ("B", -1): -2,   # B♭  major (2♭)
+
+    # sharps
+    ("C",  1): +7,   # C♯  major (7♯)
+    ("D",  1): +6,   # D♯  enharm. (=E♭)  (6♯)
+    ("E",  1): +5,   # E♯  enharm. (=F)   (5♯)
+    ("F",  1): +6,   # F♯  major (6♯)
+    ("G",  1): +2,   # G♯  enharm. (=A♭)  (2♯)
+    ("A",  1): +4,   # A♯  enharm. (=B♭)  (4♯)
+    ("B",  1): +3,   # B♯  enharm. (=C)   (3♯)
+}
+
+class Errors(Enum):
+    """
+    Possibles error del Dolores
+    """
+
+    ClefError = "ClefError"
+    TimesigError = "TimesigError"
+    Fifhts2FifthsError = "Fifhts2FifthsError"
+    Alter2AlterError = "Alter2AlterError"
+    Fifths2AlterEquivalent = "Fifths2AlterEquivalent"
+    Alter2FifthsEquivalent = "Alter2FifthsEquivalent"
+    Fifths2AlterError = "Fifths2AlterError"
+    Alter2FifthsError = "Alter2FifthsError"
 
 class Clef:
     def __init__(
         self,
-        lxml_object: Element = None,
+        xml_object: ET.Element = None,
         sign: TT.ClefSign = None,
         octave_change: int = None,
         line: int = None,
         print_object: bool = None
     ) -> None:
-        self.lxml_object = lxml_object
+        self.xml_object = xml_object
         self.sign = sign
         self.octave_change = octave_change
         self.line = line
@@ -31,22 +78,29 @@ class Clef:
     
     def copy(self) -> "Clef":
         return Clef(
-            deepcopy(self.lxml_object),
+            deepcopy(self.xml_object),
             self.clef.copy(),
             self.timesig.copy(),
             self.key.copy(),
         )
+    
+    def compare(self, other: object) -> Errors:
+        if not isinstance(other, Clef):
+            return NotImplemented
+        if self.sign != other.sign or self.octave_change != other.octave_change:
+            return Errors.ClefError
+        return None
 
 class TimeSig:
     def __init__(
         self,
-        lxml_object: Element = None,
+        xml_object: ET.Element = None,
         time_value: tuple[int, int] = None,
         staff: int = None,
         time_type: TT.TimeSymbol = None,
         print_object: bool = None
     ) -> None:
-        self.lxml_object = lxml_object
+        self.xml_object = xml_object
         self.time_value = time_value
         self.staff = staff
         self.time_type = time_type
@@ -60,11 +114,19 @@ class TimeSig:
             f" {self.print_object}"
         ) + "\n - - -\n"
     
+    def compare(self, other: object) -> Errors:
+        if not isinstance(other, TimeSig):
+            return NotImplemented
+        if self.time_value != other.time_value or self.staff != other.staff or \
+            self.time_type != other.time_type:
+            return Errors.TimesigError
+        return None
+    
 
 class Key:
     def __init__(
         self,
-        lxml_object: Element = None,
+        xml_object: ET.Element = None,
         is_fifths: bool = None,
         print_object: bool = None,
         fifths: Optional[int] = None,
@@ -73,7 +135,7 @@ class Key:
         alter_value: Optional[List[int]] = None,
         alter_accidentals: Optional[List[TT.AccidentalValue]] = None
     ) -> None:
-        self.lxml_object = lxml_object
+        self.xml_object = xml_object
         self.is_fifths = is_fifths
         self.print_object = print_object
         self.fifths = fifths
@@ -98,8 +160,94 @@ class Key:
             f" {self.alter_value}\nAlter Accidentals: {self.alter_accidentals}\nPrint_Object:"
             f" {self.print_object}"
             ) + "\n - - -\n"
-
+    
+    def compare(self, other: object) -> Errors:
+        if not isinstance(other, Key):
+            return NotImplemented
+        if self.is_fifths != other.is_fifths:
+            if self.is_fifths:
+                other.convert_key_alter_to_fifths(self.fifths)
+                if self.fifths != other.fifths or self.cancel != other.cancel:
+                    return Errors.Fifths2AlterError
+                else:
+                    return Errors.Fifths2AlterEquivalent
+            else:
+                self.convert_key_alter_to_fifths()
+                if self.fifths != other.fifths or self.cancel != other.cancel:
+                    return Errors.Alter2FifthsError
+                else:
+                    return Errors.Alter2FifthsEquivalent
+        if self.is_fifths:
+            if self.fifths != other.fifths or self.cancel != other.cancel:
+                return Errors.Fifhts2FifthsError
+        else:
+            if self.alter_steps != other.alter_steps or self.alter_value != other.alter_value \
+                or self.alter_accidentals != other.alter_accidentals:
+                return Errors.Alter2AlterError
+        return None
         
+
+    def convert_key_alter_to_fifths(self, previous_fifths: int = None):
+        """
+        Converts a <key> element in <key-step>/<key-alter> format into a single <fifths> element.
+        Also adds a <cancel> element based on the previous key signature, if known.
+        
+        Parameters:
+            key_element (etree._Element): A <key> element from MusicXML.
+        """
+        key_steps = self.xml_object.findall("key-step")
+        key_alters = self.xml_object.findall("key-alter")
+
+        assert len(key_steps) == len(key_alters), (
+            "Mismatch between number of <key-step> and <key-alter> elements"
+        )
+
+        # Build ordered list of (step, alter)
+        alterations = [(step.text, int(alter.text)) for step, alter in zip(key_steps, key_alters)]
+
+        if len(alterations) == 1:
+            step, alt = alterations[0]
+            try:
+                fifths = TONIC_TO_FIFTHS[(step, alt)]
+            except KeyError:
+                raise ValueError(f"Tonic {step}{'#' if alt==1 else 'b'} "
+                                f"is not a standard key signature")
+        else:
+            # Validate all alterations are either sharps or flats
+            alteration_values = set(alter for _, alter in alterations)
+            assert alteration_values in ({1}, {-1}), (
+                f"Unsupported alteration values {alteration_values}. Only pure sharps or flats supported."
+            )
+
+            # Validate altered steps are in correct order
+            steps = [step for step, _ in alterations]
+            if 1 in alteration_values:
+                assert steps == SHARP_ORDER[:len(steps)], (
+                    f"Steps {steps} do not match expected sharp order {SHARP_ORDER[:len(steps)]}"
+                )
+                fifths = len(steps)
+            else:
+                assert steps == FLAT_ORDER[:len(steps)], (
+                    f"Steps {steps} do not match expected flat order {FLAT_ORDER[:len(steps)]}"
+                )
+                fifths = -len(steps)
+
+        # Remove existing <key-step> and <key-alter> elements
+        for elem in key_steps + key_alters:
+            self.xml_object.remove(elem)
+
+        # add <cancel> if caller supplied previous value and we intend to print key
+        if previous_fifths is not None and self.print_object:
+            cancel = ET.SubElement(self.xml_object, "cancel")
+            cancel.text = str(previous_fifths)
+            cancel.set("mode", "sharp" if previous_fifths > 0 else "flat")
+
+        fifths_elem = ET.SubElement(self.xml_object, "fifths")
+        fifths_elem.text = str(fifths)
+
+        # update state
+        self.fifths = fifths
+            
         
 
 
