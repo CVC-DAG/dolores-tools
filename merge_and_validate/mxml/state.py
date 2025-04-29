@@ -190,3 +190,15 @@ class ScoreState:
             self.stack[self.current_time] = attributes
 
         self.current_attributes.merge(attributes)
+
+
+    def new_measure(self) -> None:
+        """Start a new measure keeping the same attributes as the last."""
+        if len(self.stack) > 0:
+            self.change_time(self.stack.peekitem(0)[0])
+            self.change_time(self.stack.peekitem(-1)[0])
+        
+        self.stack = SortedDict()
+
+        self.current_time = 0
+        self.time_buffer = 0

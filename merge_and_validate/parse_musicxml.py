@@ -60,7 +60,7 @@ class ParserMXML():
                 for score in os.listdir(folder_path):
                     if score.lower().endswith('.jpg'):
                         for mxml_file in sorted(os.listdir(mxml_folder)):
-                            if score[:-4] in mxml_file:
+                            if score[:-4] in mxml_file and 'cvc205' not in mxml_file:
                                 # Agafar score state per tenir initial_attributes i last_attributes
                                 print("Processing line: " + mxml_file)
                                 self.states.append(MST.ScoreState())
@@ -146,8 +146,16 @@ class ParserMXML():
                 self._backup_or_forward(True, child)
             elif child.tag == "attributes":
                 self._visit_attributes(child)
-
+        self._new_measure()
         #self.states.change_time(Fraction(0))
+
+    def _new_measure(self) -> None:
+        # print("NEW MEASURE", end="\n\n")
+        self.states[-1].new_measure()
+
+        # Soooo... apparently musicXML allows beams going from measure to measure...
+        # self.group_stack.reset()
+        #self.current_chord = {grace: None for grace in [False, True]}
     
 
     def _preparse_note(self, note: ET.Element) -> None:

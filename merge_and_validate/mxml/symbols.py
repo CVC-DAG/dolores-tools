@@ -215,7 +215,7 @@ class Key:
         else:
             # Validate all alterations are either sharps or flats
             alteration_values = set(alter for _, alter in alterations)
-            assert alteration_values in ({1}, {-1}), (
+            assert alteration_values in ({1}, {-1}, {0}), (
                 f"Unsupported alteration values {alteration_values}. Only pure sharps or flats supported."
             )
 
