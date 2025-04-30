@@ -87,31 +87,31 @@ class ParserMXML():
         # Comprovar diferencies entre clef, key i time de self.states[-2].current_attributes i self.states[-1].initial_attributes
 
         # CLEF
-        error = self.states[-2].current_attributes.clef.compare(self.states[-1].initial_attributes.clef) 
-        if error is not None and not self.states[-1].initial_attributes.clef.print_object:
-            if folder not in self.error_dict:
-                self.error_dict[folder] = {}
-            if score not in self.error_dict[folder]:
-                self.error_dict[folder][score] = {}
-            self.error_dict[folder][score][mxml_file] = error.value
+        if self.states[-1].initial_attributes.clef is None:
+            self.save_error_to_dict(folder, score, mxml_file, Errors.NoClef)
+        else:
+            if self.states[-2].current_attributes.clef is not None:
+                error = self.states[-2].current_attributes.clef.compare(self.states[-1].initial_attributes.clef) 
+                if error is not None and not self.states[-1].initial_attributes.clef.print_object:
+                    self.save_error_to_dict(folder, score, mxml_file, error)
         
         # KEY
-        error = self.states[-2].current_attributes.key.compare(self.states[-1].initial_attributes.key)
-        if error is not None and not self.states[-1].initial_attributes.key.print_object:
-            if folder not in self.error_dict:
-                self.error_dict[folder] = {}
-            if score not in self.error_dict[folder]:
-                self.error_dict[folder][score] = {}
-            self.error_dict[folder][score][mxml_file] = error.value
+        if self.states[-1].initial_attributes.key is None:
+            self.save_error_to_dict(folder, score, mxml_file, Errors.NoKey)
+        else:
+            if self.states[-2].current_attributes.key is not None:
+                error = self.states[-2].current_attributes.key.compare(self.states[-1].initial_attributes.key)
+                if error is not None and not self.states[-1].initial_attributes.key.print_object:
+                    self.save_error_to_dict(folder, score, mxml_file, error)
 
         # TIMESIG
-        error =  self.states[-2].current_attributes.timesig.compare(self.states[-1].initial_attributes.timesig)
-        if error is not None and not self.states[-1].initial_attributes.timesig.print_object:
-            if folder not in self.error_dict:
-                self.error_dict[folder] = {}
-            if score not in self.error_dict[folder]:
-                self.error_dict[folder][score] = {}
-            self.error_dict[folder][score][mxml_file] = error.value
+        if self.states[-1].initial_attributes.timesig is None:
+            self.save_error_to_dict(folder, score, mxml_file, Errors.NoTimesig)
+        else:
+            if self.states[-2].current_attributes.timesig is not None:
+                error =  self.states[-2].current_attributes.timesig.compare(self.states[-1].initial_attributes.timesig)
+                if error is not None and not self.states[-1].initial_attributes.timesig.print_object:
+                    self.save_error_to_dict(folder, score, mxml_file, error)
 
 
     def parse_for_attributes(self, mxml_file: Path) -> None:
@@ -126,6 +126,17 @@ class ParserMXML():
 
                 # Haig de mirar-me més a fons la utilitat de la symbol_table
                 #self.symbol_table.reset()
+
+
+    def save_error_to_dict(self, folder: str, score: str, mxml_file: str, error: Errors) -> None:
+        if folder not in self.error_dict:
+                self.error_dict[folder] = {}
+        if score not in self.error_dict[folder]:
+            self.error_dict[folder][score] = {}
+        if mxml_file not in self.error_dict[folder][score]:
+            self.error_dict[folder][score][mxml_file] = [error.value]
+        else:
+            self.error_dict[folder][score][mxml_file].append(error.value)
 
 
     def _visit_part(

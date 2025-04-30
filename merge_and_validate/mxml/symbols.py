@@ -44,14 +44,18 @@ class Errors(Enum):
     Possibles error del Dolores
     """
 
-    ClefError = "ClefError"
-    TimesigError = "TimesigError"
+    ClefChangeError = "ClefChangeError"
+    TimesigChangeError = "TimesigError"
     Fifhts2FifthsError = "Fifhts2FifthsError"
     Alter2AlterError = "Alter2AlterError"
     Fifths2AlterEquivalent = "Fifths2AlterEquivalent"
     Alter2FifthsEquivalent = "Alter2FifthsEquivalent"
     Fifths2AlterError = "Fifths2AlterError"
     Alter2FifthsError = "Alter2FifthsError"
+    NoClef = "NoClef"
+    NoTimesig = "NoTimesig"
+    NoKey = "NoKey"
+
 
 class Clef:
     def __init__(
@@ -88,7 +92,7 @@ class Clef:
         if not isinstance(other, Clef):
             return NotImplemented
         if self.sign != other.sign or self.octave_change != other.octave_change:
-            return Errors.ClefError
+            return Errors.ClefChangeError
         return None
 
 class TimeSig:
@@ -119,7 +123,7 @@ class TimeSig:
             return NotImplemented
         if self.time_value != other.time_value or self.staff != other.staff or \
             self.time_type != other.time_type:
-            return Errors.TimesigError
+            return Errors.TimesigChangeError
         return None
     
 
@@ -162,23 +166,24 @@ class Key:
             ) + "\n - - -\n"
     
     def compare(self, other: object) -> Errors:
+        print("COMPARA KEYS")
         if not isinstance(other, Key):
             return NotImplemented
         if self.is_fifths != other.is_fifths:
             if self.is_fifths:
-                other.convert_key_alter_to_fifths(self.fifths)
-                if self.fifths != other.fifths or self.cancel != other.cancel:
+                conversion_error = other.convert_key_alter_to_fifths(self.fifths)
+                if self.fifths != other.fifths or conversion_error:
                     return Errors.Fifths2AlterError
                 else:
                     return Errors.Fifths2AlterEquivalent
             else:
-                self.convert_key_alter_to_fifths()
-                if self.fifths != other.fifths or self.cancel != other.cancel:
+                conversion_error = self.convert_key_alter_to_fifths()
+                if self.fifths != other.fifths or conversion_error:
                     return Errors.Alter2FifthsError
                 else:
                     return Errors.Alter2FifthsEquivalent
         if self.is_fifths:
-            if self.fifths != other.fifths or self.cancel != other.cancel:
+            if self.fifths != other.fifths:
                 return Errors.Fifhts2FifthsError
         else:
             if self.alter_steps != other.alter_steps or self.alter_value != other.alter_value \
@@ -187,7 +192,7 @@ class Key:
         return None
         
 
-    def convert_key_alter_to_fifths(self, previous_fifths: int = None):
+    def convert_key_alter_to_fifths(self, previous_fifths: int = None) -> bool:
         """
         Converts a <key> element in <key-step>/<key-alter> format into a single <fifths> element.
         Also adds a <cancel> element based on the previous key signature, if known.
@@ -197,13 +202,15 @@ class Key:
         """
         key_steps = self.xml_object.findall("key-step")
         key_alters = self.xml_object.findall("key-alter")
-
+        print(key_steps)
+        print(key_alters)
         assert len(key_steps) == len(key_alters), (
             "Mismatch between number of <key-step> and <key-alter> elements"
         )
 
         # Build ordered list of (step, alter)
         alterations = [(step.text, int(alter.text)) for step, alter in zip(key_steps, key_alters)]
+        cancel_text = None
 
         if len(alterations) == 1:
             step, alt = alterations[0]
@@ -213,40 +220,76 @@ class Key:
                 raise ValueError(f"Tonic {step}{'#' if alt==1 else 'b'} "
                                 f"is not a standard key signature")
         else:
+            print(alterations)
+
             # Validate all alterations are either sharps or flats
-            alteration_values = set(alter for _, alter in alterations)
-            assert alteration_values in ({1}, {-1}, {0}), (
-                f"Unsupported alteration values {alteration_values}. Only pure sharps or flats supported."
+            alteration_values = [alter for _, alter in alterations]
+            alteration_set = set(alteration_values)
+            assert alteration_set <= {1, 0, -1}, (
+                f"Unsupported alteration values {alteration_set}. Only pure sharps or flats supported."
             )
 
             # Validate altered steps are in correct order
-            steps = [step for step, _ in alterations]
+            print(alteration_values)
             if 1 in alteration_values:
-                assert steps == SHARP_ORDER[:len(steps)], (
-                    f"Steps {steps} do not match expected sharp order {SHARP_ORDER[:len(steps)]}"
-                )
-                fifths = len(steps)
-            else:
-                assert steps == FLAT_ORDER[:len(steps)], (
-                    f"Steps {steps} do not match expected flat order {FLAT_ORDER[:len(steps)]}"
-                )
-                fifths = -len(steps)
+                sharp_steps = [step for step, alter in alterations if alter == 1]
+                print("ENTRA SHARPS")
+                if sharp_steps == SHARP_ORDER[:len(sharp_steps)]:
+                    print("ENTRA ASSIGNACIO FIFTHS")
+                    fifths = len(sharp_steps)
+                else:
+                    # Non-conventional key signature (No es pot traduir a fifths)
+                    return True
+
+                #Cancel al reduir sharps
+                if 0 in alteration_values and len(alteration_values) <= len(SHARP_ORDER):
+                    natural_steps = [step for step, alter in alterations if alter == 0]
+                    if natural_steps == SHARP_ORDER[len(sharp_steps):len(alteration_values)]:
+                        cancel_text = len(alteration_values)
+                    
+
+            elif -1 in alteration_values:
+                flat_steps = [step for step, alter in alterations if alter == -1]
+                if flat_steps == FLAT_ORDER[:len(flat_steps)]:
+                    fifths = -len(flat_steps)
+                else:
+                    # Non-conventional key signature (No es pot traduir a fifths)
+                    return True
+                
+                #Cancel al reduir flats
+                if 0 in alteration_values and len(alteration_values) <= len(FLAT_ORDER):
+                    natural_steps = [step for step, alter in alterations if alter == 0]
+                    if natural_steps == FLAT_ORDER[len(flat_steps):len(alteration_values)]:
+                        cancel_text = len(alteration_values)
+
+            #Cancel quan canvia de sharps a flats i viceversa
+            if 0 in alteration_values and cancel_text is None:
+                natural_steps = [step for step, alter in alterations if alter == 0]
+                if natural_steps == FLAT_ORDER[:len(natural_steps)]:
+                    cancel_text = -len(natural_steps)
+                elif natural_steps == SHARP_ORDER[:len(natural_steps)]:
+                    cancel_text = len(natural_steps)
+                else:
+                    raise ValueError(f"Natural steps {natural_steps} do not match neither flat or sharp order")
 
         # Remove existing <key-step> and <key-alter> elements
         for elem in key_steps + key_alters:
             self.xml_object.remove(elem)
 
         # add <cancel> if caller supplied previous value and we intend to print key
-        if previous_fifths is not None and self.print_object:
+        if cancel_text is not None:
             cancel = ET.SubElement(self.xml_object, "cancel")
-            cancel.text = str(previous_fifths)
-            cancel.set("mode", "sharp" if previous_fifths > 0 else "flat")
+            cancel.text = str(cancel_text)
+            cancel.set("mode", "sharp" if cancel_text > 0 else "flat")
+            self.cancel = cancel_text
 
         fifths_elem = ET.SubElement(self.xml_object, "fifths")
         fifths_elem.text = str(fifths)
 
         # update state
         self.fifths = fifths
+
+        return False
             
         
 
