@@ -166,21 +166,16 @@ class Key:
             ) + "\n - - -\n"
     
     def compare(self, other: object) -> Errors:
-        print("COMPARA KEYS")
-        print(self)
-        print(other)
         if not isinstance(other, Key):
             return NotImplemented
         if self.is_fifths != other.is_fifths:
             if self.is_fifths:
-                print("Entra other.convert_key_alter_to_fifths")
                 conversion_error = other.convert_key_alter_to_fifths(self.fifths)
                 if self.fifths != other.fifths or conversion_error:
                     return Errors.Fifths2AlterError
                 else:
                     return Errors.Fifths2AlterEquivalent
             else:
-                print("Entra self.convert_key_alter_to_fifths")
                 conversion_error = self.convert_key_alter_to_fifths()
                 if self.fifths != other.fifths or conversion_error:
                     return Errors.Alter2FifthsError
@@ -206,10 +201,10 @@ class Key:
         """
         key_steps = self.xml_object.findall("key-step")
         key_alters = self.xml_object.findall("key-alter")
-        print(self.alter_steps)
+        '''print(self.alter_steps)
         print(self.alter_value)
         print(key_steps)
-        print(key_alters)
+        print(key_alters)'''
         assert len(key_steps) == len(key_alters), (
             "Mismatch between number of <key-step> and <key-alter> elements"
         )
@@ -217,6 +212,7 @@ class Key:
         # Build ordered list of (step, alter)
         alterations = [(step.text, int(alter.text)) for step, alter in zip(key_steps, key_alters)]
         cancel_text = None
+        fifths = None
 
         if len(alterations) == 1:
             step, alt = alterations[0]
@@ -226,8 +222,6 @@ class Key:
                 raise ValueError(f"Tonic {step}{'#' if alt==1 else 'b'} "
                                 f"is not a standard key signature")
         else:
-            print(alterations)
-
             # Validate all alterations are either sharps or flats
             alteration_values = [alter for _, alter in alterations]
             alteration_set = set(alteration_values)
@@ -239,9 +233,7 @@ class Key:
             print(alteration_values)
             if 1 in alteration_values:
                 sharp_steps = [step for step, alter in alterations if alter == 1]
-                print("ENTRA SHARPS")
                 if sharp_steps == SHARP_ORDER[:len(sharp_steps)]:
-                    print("ENTRA ASSIGNACIO FIFTHS")
                     fifths = len(sharp_steps)
                 else:
                     # Non-conventional key signature (No es pot traduir a fifths)
@@ -277,6 +269,9 @@ class Key:
                     cancel_text = len(natural_steps)
                 else:
                     raise ValueError(f"Natural steps {natural_steps} do not match neither flat or sharp order")
+                
+                if cancel_text is not None and fifths is None:
+                    fifths = 0
 
         '''# Remove existing <key-step> and <key-alter> elements
         for elem in key_steps + key_alters:
