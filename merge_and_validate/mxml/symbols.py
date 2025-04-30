@@ -167,16 +167,20 @@ class Key:
     
     def compare(self, other: object) -> Errors:
         print("COMPARA KEYS")
+        print(self)
+        print(other)
         if not isinstance(other, Key):
             return NotImplemented
         if self.is_fifths != other.is_fifths:
             if self.is_fifths:
+                print("Entra other.convert_key_alter_to_fifths")
                 conversion_error = other.convert_key_alter_to_fifths(self.fifths)
                 if self.fifths != other.fifths or conversion_error:
                     return Errors.Fifths2AlterError
                 else:
                     return Errors.Fifths2AlterEquivalent
             else:
+                print("Entra self.convert_key_alter_to_fifths")
                 conversion_error = self.convert_key_alter_to_fifths()
                 if self.fifths != other.fifths or conversion_error:
                     return Errors.Alter2FifthsError
@@ -202,6 +206,8 @@ class Key:
         """
         key_steps = self.xml_object.findall("key-step")
         key_alters = self.xml_object.findall("key-alter")
+        print(self.alter_steps)
+        print(self.alter_value)
         print(key_steps)
         print(key_alters)
         assert len(key_steps) == len(key_alters), (
@@ -272,19 +278,19 @@ class Key:
                 else:
                     raise ValueError(f"Natural steps {natural_steps} do not match neither flat or sharp order")
 
-        # Remove existing <key-step> and <key-alter> elements
+        '''# Remove existing <key-step> and <key-alter> elements
         for elem in key_steps + key_alters:
-            self.xml_object.remove(elem)
+            self.xml_object.remove(elem)'''
 
         # add <cancel> if caller supplied previous value and we intend to print key
         if cancel_text is not None:
-            cancel = ET.SubElement(self.xml_object, "cancel")
+            '''cancel = ET.SubElement(self.xml_object, "cancel")
             cancel.text = str(cancel_text)
-            cancel.set("mode", "sharp" if cancel_text > 0 else "flat")
+            cancel.set("mode", "sharp" if cancel_text > 0 else "flat")'''
             self.cancel = cancel_text
 
-        fifths_elem = ET.SubElement(self.xml_object, "fifths")
-        fifths_elem.text = str(fifths)
+        '''fifths_elem = ET.SubElement(self.xml_object, "fifths")
+        fifths_elem.text = str(fifths)'''
 
         # update state
         self.fifths = fifths
