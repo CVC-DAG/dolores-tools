@@ -21,7 +21,7 @@ class WorkCatalogue:
 
 
 def main(args: Namespace) -> None:
-    mxml_parser = ParserMXML(args.dolores_path, args.debug_prints)
+    mxml_parser = ParserMXML(args.dolores_path, args.print_attributes, args.print_notes)
     mxml_parser.return_faulty()
 
 
@@ -35,7 +35,8 @@ def setup() -> Namespace:
         "general Dolores folder",
     )
 
-    parser.add_argument('--debug_prints', action='store_true', help='Print all attributes')
+    parser.add_argument('--print_attributes', action='store_true', help='Print all attributes')
+    parser.add_argument('--print_notes', action='store_true', help='Print all attributes')
 
     return parser.parse_args()
 

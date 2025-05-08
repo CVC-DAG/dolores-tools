@@ -66,11 +66,12 @@ class Attributes:
 
 
 class ScoreState:
-    def __init__(self) -> None:
+    def __init__(self, print_notes) -> None:
         self.nstaves = 1
         self.divisions = 1
         self.current_time = 0
         self.time_buffer = 0
+        self.measure_timer = 0
 
         # The initial state for a measure. Posterior attributes are computed by
         # composing these initial attributes with a stack of saved attribute elements.
@@ -81,6 +82,9 @@ class ScoreState:
         self.current_attributes: Attributes = self.initial_attributes.copy()
 
         self.stack: SortedDict[int, Attributes] = SortedDict()
+        self.measure_specific_stack: SortedDict[int, Attributes] = SortedDict()
+
+        self.print_notes = print_notes
 
 
     @classmethod
@@ -95,8 +99,8 @@ class ScoreState:
         nstaves : int
             The number of staves to change the part to.
         """
-        assert self.current_time == 0, "Changing number of staves mid-measure"
-        assert len(self.stack) == 0, "Changing number of staves mid-measure"
+        assert self.measure_timer == 0, "Changing number of staves mid-measure"
+        assert len(self.measure_specific_stack) == 0, "Changing number of staves mid-measure"
 
         #self.current_attributes = self.initial_attributes.copy()
         self.nstaves = nstaves
@@ -118,6 +122,7 @@ class ScoreState:
 
     def move_buffer(self) -> None:
         """Update the current time with the buffer and reset the latter."""
+        #print("ENTRA Move buffer")
         if self.time_buffer != 0:
             new_time = self.current_time + self.time_buffer
             self.change_time(new_time)
@@ -130,6 +135,7 @@ class ScoreState:
         increment : int
             Amount of fractions of a step to change timer by.
         """
+        #print("ENTRA Increment time")
         self.move_buffer()
         target_time = self.current_time + increment
         self.change_time(target_time)
@@ -147,6 +153,8 @@ class ScoreState:
         time : Fraction
             What time to move the state to.
         """
+        if self.print_notes:
+            print(f"Changing time to {time} from {self.current_time}")
         if time < self.current_time:
             if len(self.stack) > 0:
                 index = self.stack.bisect_left(time + 0.5)
@@ -164,6 +172,7 @@ class ScoreState:
 
         self.current_time = time
         self.time_buffer = 0
+        self.measure_timer = time
 
 
     @property
@@ -186,19 +195,23 @@ class ScoreState:
         """
         if self.current_time in self.stack:
             self.stack[self.current_time].merge(attributes)
+            self.measure_specific_stack[self.current_time].merge(attributes)
         else:
             self.stack[self.current_time] = attributes
+            self.measure_specific_stack[self.current_time] = attributes
 
         self.current_attributes.merge(attributes)
 
 
     def new_measure(self) -> None:
         """Start a new measure keeping the same attributes as the last."""
-        if len(self.stack) > 0:
+        #print("ENTRA New measure")
+        '''if len(self.stack) > 0:
             self.change_time(self.stack.peekitem(0)[0])
             self.change_time(self.stack.peekitem(-1)[0])
-        
-        self.stack = SortedDict()
+        self.stack = SortedDict()'''
+        self.measure_specific_stack = SortedDict()
 
-        self.current_time = 0
-        self.time_buffer = 0
+        self.measure_timer = 0
+        '''self.current_time = 0
+        self.time_buffer = 0'''

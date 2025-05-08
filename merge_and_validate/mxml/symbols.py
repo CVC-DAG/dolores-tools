@@ -10,33 +10,46 @@ from . import musicxml as MXML
 SHARP_ORDER = ['F', 'C', 'G', 'D', 'A', 'E', 'B']
 FLAT_ORDER = ['B', 'E', 'A', 'D', 'G', 'C', 'F']
 
-TONIC_TO_FIFTHS: dict[tuple[str, int], int] = {
-    # naturals
-    ("C",  0):  0,
-    ("D",  0): +2,
-    ("E",  0): +4,
-    ("F",  0): -1,
-    ("G",  0): +1,
-    ("A",  0): +3,
-    ("B",  0): +5,
+FIFTHS_TO_ALTERATIONS = {
+    -7: [('B', -1), ('E', -1), ('A', -1), ('D', -1), ('G', -1), ('C', -1), ('F', -1)],
+    -6: [('B', -1), ('E', -1), ('A', -1), ('D', -1), ('G', -1), ('C', -1)],
+    -5: [('B', -1), ('E', -1), ('A', -1), ('D', -1), ('G', -1)],
+    -4: [('B', -1), ('E', -1), ('A', -1), ('D', -1)],
+    -3: [('B', -1), ('E', -1), ('A', -1)],
+    -2: [('B', -1), ('E', -1)],
+    -1: [('B', -1)],
+     0: [],
+     1: [('F', 1)],
+     2: [('F', 1), ('C', 1)],
+     3: [('F', 1), ('C', 1), ('G', 1)],
+     4: [('F', 1), ('C', 1), ('G', 1), ('D', 1)],
+     5: [('F', 1), ('C', 1), ('G', 1), ('D', 1), ('A', 1)],
+     6: [('F', 1), ('C', 1), ('G', 1), ('D', 1), ('A', 1), ('E', 1)],
+     7: [('F', 1), ('C', 1), ('G', 1), ('D', 1), ('A', 1), ('E', 1), ('B', 1)],
+}
 
-    # flats
-    ("C", -1): -7,   # C♭  major (7♭)
-    ("D", -1): -5,   # D♭  major (5♭)
-    ("E", -1): -3,   # E♭  major (3♭)
-    ("F", -1): -6,   # F♭  enharm. (=E) (6♭) – rarely used
-    ("G", -1): -6,   # G♭  major (6♭)
-    ("A", -1): -4,   # A♭  major (4♭)
-    ("B", -1): -2,   # B♭  major (2♭)
+CANCEL_TO_NATURALS = {
+    -7: [('B', 0), ('E', 0), ('A', 0), ('D', 0), ('G', 0), ('C', 0), ('F', 0)],
+    -6: [('B', 0), ('E', 0), ('A', 0), ('D', 0), ('G', 0), ('C', 0)],
+    -5: [('B', 0), ('E', 0), ('A', 0), ('D', 0), ('G', 0)],
+    -4: [('B', 0), ('E', 0), ('A', 0), ('D', 0)],
+    -3: [('B', 0), ('E', 0), ('A', 0)],
+    -2: [('B', 0), ('E', 0)],
+    -1: [('B', 0)],
+     0: [],
+     1: [('F', 0)],
+     2: [('F', 0), ('C', 0)],
+     3: [('F', 0), ('C', 0), ('G', 0)],
+     4: [('F', 0), ('C', 0), ('G', 0), ('D', 0)],
+     5: [('F', 0), ('C', 0), ('G', 0), ('D', 0), ('A', 0)],
+     6: [('F', 0), ('C', 0), ('G', 0), ('D', 0), ('A', 0), ('E', 0)],
+     7: [('F', 0), ('C', 0), ('G', 0), ('D', 0), ('A', 0), ('E', 0), ('B', 0)],
+}
 
-    # sharps
-    ("C",  1): +7,   # C♯  major (7♯)
-    ("D",  1): +6,   # D♯  enharm. (=E♭)  (6♯)
-    ("E",  1): +5,   # E♯  enharm. (=F)   (5♯)
-    ("F",  1): +6,   # F♯  major (6♯)
-    ("G",  1): +2,   # G♯  enharm. (=A♭)  (2♯)
-    ("A",  1): +4,   # A♯  enharm. (=B♭)  (4♯)
-    ("B",  1): +3,   # B♯  enharm. (=C)   (3♯)
+VALUE_TO_ACCIDENTAL = {
+    1: TT.AccidentalValue.SHARP,
+    0: TT.AccidentalValue.NATURAL,
+    -1: TT.AccidentalValue.FLAT
 }
 
 class Errors(Enum):
@@ -44,14 +57,15 @@ class Errors(Enum):
     Possibles error del Dolores
     """
 
-    ClefChangeError = "ClefChangeError"
-    TimesigChangeError = "TimesigError"
-    Fifhts2FifthsError = "Fifhts2FifthsError"
+    ClefChangeNoPrintError = "ClefChangeNoPrintError"
+    TimesigChangeNoPrintError = "TimesigChangeNoPrintError"
+    KeyChangeNoPrintError = "KeyChangeNoPrintError"
+    '''Fifhts2FifthsError = "Fifhts2FifthsError"
     Alter2AlterError = "Alter2AlterError"
     Fifths2AlterEquivalent = "Fifths2AlterEquivalent"
     Alter2FifthsEquivalent = "Alter2FifthsEquivalent"
     Fifths2AlterError = "Fifths2AlterError"
-    Alter2FifthsError = "Alter2FifthsError"
+    Alter2FifthsError = "Alter2FifthsError"'''
     NoClef = "NoClef"
     NoTimesig = "NoTimesig"
     NoKey = "NoKey"
@@ -92,7 +106,7 @@ class Clef:
         if not isinstance(other, Clef):
             return NotImplemented
         if self.sign != other.sign or self.octave_change != other.octave_change:
-            return Errors.ClefChangeError
+            return Errors.ClefChangeNoPrintError
         return None
 
 class TimeSig:
@@ -123,7 +137,7 @@ class TimeSig:
             return NotImplemented
         if self.time_value != other.time_value or self.staff != other.staff or \
             self.time_type != other.time_type:
-            return Errors.TimesigChangeError
+            return Errors.TimesigChangeNoPrintError
         return None
     
 
@@ -137,7 +151,7 @@ class Key:
         cancel: Optional[int] = None,
         alter_steps: Optional[List[MXML.Step]] = None,
         alter_value: Optional[List[int]] = None,
-        alter_accidentals: Optional[List[TT.AccidentalValue]] = None
+        #alter_accidentals: Optional[List[TT.AccidentalValue]] = None
     ) -> None:
         self.xml_object = xml_object
         self.is_fifths = is_fifths
@@ -146,7 +160,7 @@ class Key:
         self.cancel = cancel
         self.alter_steps = alter_steps
         self.alter_value = alter_value
-        self.alter_accidentals = alter_accidentals
+        #self.alter_accidentals = alter_accidentals
     
     def __str__(self) -> str:
         """Get simple representation for debugging purposes."""
@@ -160,12 +174,13 @@ class Key:
             ) + "\n - - -\n"
         else:
             return (
-            f"========= KEY =========\nAlter Steps: {self.alter_steps}\nAlter Value:"
-            f" {self.alter_value}\nAlter Accidentals: {self.alter_accidentals}\nPrint_Object:"
-            f" {self.print_object}"
+            f"========= KEY =========\nAlter Steps: {self.alter_steps}"
+            f"\nAlter Value: {self.alter_value}"
+            #f"\nAlter Accidentals: {self.alter_accidentals}"
+            f"\nPrint_Object: {self.print_object}"
             ) + "\n - - -\n"
     
-    def compare(self, other: object) -> Errors:
+    '''def compare(self, other: object) -> Errors:
         if not isinstance(other, Key):
             return NotImplemented
         if self.is_fifths != other.is_fifths:
@@ -188,6 +203,13 @@ class Key:
             if self.alter_steps != other.alter_steps or self.alter_value != other.alter_value \
                 or self.alter_accidentals != other.alter_accidentals:
                 return Errors.Alter2AlterError
+        return None'''
+    
+    def compare(self, other: object) -> Errors:
+        if not isinstance(other, Key):
+            return NotImplemented
+        if self.alter_steps != other.alter_steps or self.alter_value != other.alter_value:
+            return Errors.KeyChangeNoPrintError
         return None
         
 
@@ -268,7 +290,8 @@ class Key:
                 elif natural_steps == SHARP_ORDER[:len(natural_steps)]:
                     cancel_text = len(natural_steps)
                 else:
-                    raise ValueError(f"Natural steps {natural_steps} do not match neither flat or sharp order")
+                    # Non-conventional key signature (No es pot traduir a fifths)
+                    return True
                 
                 if cancel_text is not None and fifths is None:
                     fifths = 0
@@ -292,7 +315,125 @@ class Key:
 
         return False
             
+
+    def convert_fifths_to_key_alter(self, previous_key: object = None) -> None:
+        """
+        Converts a <fifths> value in a <key> element into corresponding
+        <key-step> and <key-alter> subelements.
+
+        We don't use get_absolute_keys, as fifths are already absolute.
+        """    
+        # Get the <fifths> element
+        if self.fifths is None:
+            raise ValueError("No <fifths> element found")
+
+        if self.fifths not in FIFTHS_TO_ALTERATIONS:
+            raise ValueError(f"Invalid fifths value: {self.fifths}")
+
+        # Get the alteration list
+        alterations = FIFTHS_TO_ALTERATIONS[self.fifths]  
+
+        self.alter_steps = []
+        self.alter_value = []
+        #self.alter_accidentals = []
+        for step, alter in alterations:
+            self.alter_steps.append(MXML.Step[step])
+            self.alter_value.append(alter)
+            #self.alter_accidentals.append(VALUE_TO_ACCIDENTAL[alter])
+
+        # Get the <cancel> element
+        if self.cancel is not None:
+            if self.cancel not in CANCEL_TO_NATURALS:
+                raise ValueError(f"Invalid cancel value: {self.cancel}")
+            alterations = CANCEL_TO_NATURALS[self.cancel]
+            self.alter_steps.append(MXML.Step[step])
+            self.alter_value.append(0)
+            #self.alter_accidentals.append(TT.AccidentalValue.NATURAL)
         
+        self.is_fifths = False
+
+
+
+    def get_absolute_keys(self, previous_key: object = None) -> None:
+        """
+        Agafar key anterior, aplicar canvis a la nova key, i actualitzar la key nova amb aquests canvis.
+        D'alguna forma ens quedem amb la key absoluta
+        """
+
+        actual_steps = previous_key.alter_steps.copy()
+        actual_value = previous_key.alter_value.copy()
+        #actual_accidentals = previous_key.alter_accidentals.copy()
+
+        #Treu sharps o flats si hi ha naturals a la nova key
+        natural_steps = [step for step, val in zip(self.alter_steps, self.alter_value) if val == 0]
+        filtered = [
+            (step, val)
+            for step, val in zip(actual_steps, actual_value)
+            if step not in natural_steps
+        ]
+        if filtered:
+            actual_steps, actual_value = zip(*filtered)
+            actual_steps = list(actual_steps)
+            actual_value = list(actual_value)
+            #actual_accidentals = list(actual_accidentals)
+        else:
+            actual_steps, actual_value = [], []
+
+        #Posar sharps
+        sharp_steps = [step for step, val in zip(self.alter_steps, self.alter_value) if val == 1]
+        for step in sharp_steps:
+            if step in actual_steps:
+                idx = actual_steps.index(step)
+                #Si hi ha un flat salta error, si ja hi ha un sharp no fem res
+                if actual_value[idx] == -1:
+                    raise ValueError(f"Can't put a sharp key after a flat key without cancelling first")
+            else:
+                #En canvi, si no hi ha ningun valor a aquell step, afegim el sharp
+                actual_steps.append(step)
+                actual_value.append(1)
+                #self.alter_accidentals.append(TT.AccidentalValue.SHARP)
+
+        #Posar flats
+        flat_steps = [step for step, val in zip(self.alter_steps, self.alter_value) if val == -1]
+        for step in flat_steps:
+            if step in actual_steps:
+                idx = actual_steps.index(step)
+                #Si hi ha un sharp salta error, si ja hi ha un flat no fem res
+                if actual_value[idx] == 1:
+                    raise ValueError(f"Can't put a flat key after a sharp key without cancelling first")
+            else:
+                #En canvi, si no hi ha ningun valor a aquell step, afegim el flat
+                actual_steps.append(step)
+                actual_value.append(-1)
+                #self.alter_accidentals.append(TT.AccidentalValue.FLAT)
+
+        self.alter_steps = actual_steps
+        self.alter_value = actual_value
+        #self.alter_accidentals = actual_accidentals
+
+    
+    def order_by_alter_steps(self) -> None:
+        if len(self.alter_steps) > 1:
+            zipped = list(zip(self.alter_steps, self.alter_value))
+            zipped_sorted = sorted(zipped, key=lambda x: x[0])
+            steps_sorted, value_sorted = zip(*zipped_sorted)
+
+            self.alter_steps = list(steps_sorted)
+            self.alter_value = list(value_sorted)
+        
+
+
+
+
+    
+
+
+
+
+
+
+
+
 
 
     

@@ -21,12 +21,13 @@ class ParserMXML():
 
     _ALL_STAVES = -1
 
-    def __init__(self, folder_path, debug_prints) -> None:
+    def __init__(self, folder_path, print_attributes, print_notes) -> None:
 
         self.states: List[MST.ScoreState] = []
         #self.symbol_table = ST.SymbolTable()
         self.folder_path = folder_path
-        self.debug_prints = debug_prints
+        self.print_attributes = print_attributes
+        self.print_notes = print_notes
         self.error_dict = {}
 
         #self.actual_line: int = None
@@ -63,11 +64,11 @@ class ParserMXML():
                             if score[:-4] in mxml_file and 'cvc205' not in mxml_file:
                                 # Agafar score state per tenir initial_attributes i last_attributes
                                 print("Processing line: " + mxml_file)
-                                self.states.append(MST.ScoreState())
+                                self.states.append(MST.ScoreState(self.print_notes))
                                 mxml_path = os.path.join(mxml_folder, mxml_file)
                                 self.parse_for_attributes(mxml_path)
 
-                                if(self.debug_prints):
+                                if(self.print_attributes):
                                     print("INITIAL!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
                                     print(self.states[-1].initial_attributes)
                                     print("CURRENT!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
@@ -76,11 +77,16 @@ class ParserMXML():
                                 if last_mxml is not None:
                                     self.check_attributes(folder, score[:-4], mxml_file)
 
+                                '''if "XAC_ACAN_SMIAu94_002.03" in mxml_file:
+                                    exit()'''
+
                                 last_mxml = mxml_file
                         last_mxml = None
+                        self.states = []
 
         with open("faulty_files.json", "w") as json_file:
             json.dump(self.error_dict, json_file, indent=4)
+        print("Operació completada! S'han guardat els errors a faulty_files.json")
 
 
     def check_attributes(self, folder: str, score: str, mxml_file: str) -> None:
@@ -123,9 +129,6 @@ class ParserMXML():
         for child in root:
             if child.tag == "part":
                 self._visit_part(child)
-
-                # Haig de mirar-me més a fons la utilitat de la symbol_table
-                #self.symbol_table.reset()
 
 
     def save_error_to_dict(self, folder: str, score: str, mxml_file: str, error: Errors) -> None:
@@ -182,6 +185,13 @@ class ParserMXML():
         #print(self.states[-1])
         self.states[-1].move_buffer()
         #print(self.states[-1])
+
+        if self.print_notes:
+            print("NOTE!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+            print(self.states[-1].current_time)
+            print("ATTRIBUTES DESPRES DE NOTA!!!!!!!!!!!!!!!!!!!!!!!!!") 
+            print(self.states[-1].current_attributes)
+
 
     def _backup_or_forward(
         self,
@@ -262,9 +272,6 @@ class ParserMXML():
             
             if self.states[-1].initial_attributes.xml_object == None:
                 self.states[-1].initial_attributes = output_attributes
-
-
-
 
 
     def _visit_clef(
@@ -424,7 +431,17 @@ class ParserMXML():
         print_object_element = key.get("print-object", "yes")
         print_object = print_object_element == "yes"
 
-        return Key(key, is_fifths=True, print_object=print_object, fifths=fifths, cancel=cancel)
+        key_fifths = Key(key, is_fifths=True, print_object=print_object, fifths=fifths, cancel=cancel)
+
+        if(len(self.states) > 1):
+            key_fifths.convert_fifths_to_key_alter(self.states[-2].current_attributes.key)
+        else:
+            key_fifths.convert_fifths_to_key_alter()
+
+        key_fifths.order_by_alter_steps()
+
+        return key_fifths
+        
     
 
     def _key_alters(
@@ -472,5 +489,14 @@ class ParserMXML():
         print_object_element = key.get("print-object", "yes")
         print_object = print_object_element == "yes"
 
-        return Key(key, is_fifths=False, print_object=print_object, alter_steps=alter_steps, 
-                   alter_value=alter_values, alter_accidentals=alter_symbols)
+        actual_key = Key(key, is_fifths=False, print_object=print_object, alter_steps=alter_steps, 
+                   alter_value=alter_values #, alter_accidentals=alter_symbols
+                   )
+        
+        #Si no es la primera key, actualitzar la key anterior amb els canvis afegits a aquesta
+        if(len(self.states) > 1):
+            actual_key.get_absolute_keys(self.states[-2].current_attributes.key)
+
+        actual_key.order_by_alter_steps()
+
+        return actual_key

@@ -2058,7 +2058,7 @@ class StemValue(Enum):
     NONE = "none"
 
 
-class Step(Enum):
+class Step(str, Enum):
     """
     The step type represents a step of the diatonic scale, represented using the
     English letters A through G.
@@ -2071,6 +2071,18 @@ class Step(Enum):
     E = "E"
     F = "F"
     G = "G"
+
+    _order = ["C", "D", "E", "F", "G", "A", "B"]
+
+    def __lt__(self, other):
+        if not isinstance(other, Step):
+            return NotImplemented
+        return self._order.index(self.value) < self._order.index(other.value)
+
+    def __eq__(self, other):
+        if not isinstance(other, Step):
+            return NotImplemented
+        return self.value == other.value
 
 
 class StickLocation(Enum):
