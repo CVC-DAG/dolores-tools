@@ -5,13 +5,15 @@ import requests
 from PIL import Image
 import io
 
+from config import username, password
+
 GLOBAL_ACCESS_TOKEN = None
 
 class Particcellas:
     def __init__(self):
         self.backend_base_url = "http://158.109.9.205:8080"
-        self.username = 'gasbert@cvc.uab.cat'
-        self.password = 'gasbert'
+        self.username = username
+        self.password = password
         self._authenticate()
         self.projects_dict = self._fetch_projects()
         self.output_base = Path("output_data")
