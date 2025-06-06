@@ -29,4 +29,4 @@ if __name__ == "__main__":
         raise ValueError("You must specify at least one of --cut_particcellas or --cut_monophonic")
 
     if args.cut_particcellas:
-        cut_particcellas(args.dolores_path)
+        cut_particcellas()
