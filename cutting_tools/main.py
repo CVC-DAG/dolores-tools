@@ -10,11 +10,11 @@ if __name__ == "__main__":
         "--cut_particcellas", action='store_true', help='Cut particcellas - MusicXMLs and images'
     )
     parser.add_argument(
-        "--cut_monophonic", action='store_true', help='Cut monophonic scores - Images'
+        "--cut_mono_homo", action='store_true', help='Cut monophonic and homophonic scores - Images'
     )
     args = parser.parse_args()
 
-    if not args.cut_particcellas and not args.cut_monophonic:
-        raise ValueError("You must specify at least one of --cut_particcellas or --cut_monophonic")
+    if not args.cut_particcellas and not args.cut_mono_homo:
+        raise ValueError("You must specify at least one of --cut_particcellas or --cut_mono_homo")
 
-    cut_scores(cut_particcellas=args.cut_particcellas, cut_monophonic=args.cut_monophonic)
+    cut_scores(cut_particcellas=args.cut_particcellas, cut_monophonic=args.cut_mono_homo)

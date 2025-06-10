@@ -4,6 +4,7 @@ import xml.etree.ElementTree as ET
 import requests
 from PIL import Image
 import io
+import logging
 
 from config import username, password, backend_url
 
@@ -37,6 +38,17 @@ class Cutter:
         self.cut_particcellas = cut_particcellas
         self.cut_monophonic = cut_monophonic
         self.img_padding = 0  # Padding for image cropping
+
+        # Logging setup
+        self.log_file = self.output_base / "particcellas_log.txt"
+        logging.basicConfig(
+            level=logging.INFO,
+            format="%(asctime)s %(message)s",
+            handlers=[
+                logging.FileHandler(self.log_file, mode='a'),
+                logging.StreamHandler()
+            ]
+        )
 
     def _authenticate(self):
         global GLOBAL_ACCESS_TOKEN
@@ -133,33 +145,26 @@ class Cutter:
             return None
         
     def is_monophonic(self, part):
-        time_position = 0
-        active_notes = {}  # voice -> current time position
-        for measure in part.findall("measure"):
-            time_position = 0  # reset for each measure
-            for note in measure.findall("note"):
-                duration_el = note.find("duration")
-                voice_el = note.find("voice")
-                chord_el = note.find("chord")
-                
-                duration = int(duration_el.text) if duration_el is not None else 0
-                voice = voice_el.text if voice_el is not None else "1"
+        staff_voices = {}  # maps staff number to set of voices used
 
-                # If this note is not part of a chord, advance time in that voice
-                if chord_el is None:
-                    if voice in active_notes and active_notes[voice] > time_position:
-                        # Overlapping note in the same voice
-                        return False
-                    active_notes[voice] = time_position + duration
-                    time_position = active_notes[voice]
-                else:
-                    # This note is simultaneous with the previous one → chord
-                    if voice in active_notes and active_notes[voice] > time_position:
-                        continue  # chord stacking
-                    else:
-                        # Missing context for chord → polyphonic
-                        return False
-        return True
+        for measure in part.findall("measure"):
+            for note in measure.findall("note"):
+                voice_el = note.find("voice")
+                staff_el = note.find("staff")
+
+                voice = voice_el.text.strip() if voice_el is not None else "1"
+                staff = staff_el.text.strip() if staff_el is not None else "1"
+
+                if staff not in staff_voices:
+                    staff_voices[staff] = set()
+                staff_voices[staff].add(voice)
+
+        # Check if any staff has more than one voice
+        for voices in staff_voices.values():
+            if len(voices) > 1:
+                return False  # Polyphonic: multiple voices in one staff
+
+        return True 
 
     def cut(self):
         for project_id, project_name in self.projects_dict.items():
@@ -225,11 +230,16 @@ class Cutter:
                                 width, height = image_obj.size
                                 top = max(0, min_second - self.img_padding)
                                 bottom = min(height, max_fourth + self.img_padding)
-                                cropped = image_obj.crop((0, top, width, bottom))
-                                img_out_file = self.monophonic_img_dir / f"{file_stem}.png"
-                                cropped.save(img_out_file)
+                                if top <= bottom:
+                                    cropped = image_obj.crop((0, top, width, bottom))
+                                    img_out_file = self.monophonic_img_dir / f"{file_stem}.png"
+                                    cropped.save(img_out_file)
+                                else:
+                                    print("ValueError: Coordinate 'lower' is less than 'upper'")
+                                    continue
                             else:
                                 print(f"Could not cut image for line {line_id} (missing image or bbox info)")
+                                continue
                         else:
                             #Per les polifoniques simplement guardem musicxml as it is
                             print(f"Processing polyphonic: {project_name} (ID: {project_id}) line {line_id}")
@@ -238,7 +248,9 @@ class Cutter:
                                 f.write(musicxml_bytes)
                 else:
                     if self.cut_particcellas:
-                        print(f"Splitting particcella: {project_name} (ID: {project_id}) line {line_id}")
+                        log_msg = f"Splitting particcella: {project_name} (ID: {project_id}) line {line_id}"
+                        print(log_msg)
+                        logging.info(log_msg)
                         # Find the part-list element and its index
                         part_list = None
                         part_list_idx = None
@@ -259,7 +271,9 @@ class Cutter:
                                     ann_id = ann.get("mxml_id")
                                     if ann_id and (ann_id in mxml_ids or any(ann_id.startswith(f"{mid}.") for mid in mxml_ids)):
                                         mxml_bbox_dict[ann_id] = ann.get("bbox")
-                            #print(f"Part {part_id} mxml_id->bbox: {mxml_bbox_dict}")
+                            log_msg = f"Part {part_id} mxml_id->bbox: {mxml_bbox_dict}"
+                            #print(log_msg)
+                            logging.info(log_msg)
 
                             # Calculate min second index and max fourth index from bbox values
                             min_second = None
@@ -276,7 +290,9 @@ class Cutter:
                                     if max_fourth is None or fourth > max_fourth:
                                         max_fourth = fourth
 
-                            #print(f"Part {part_id} min second index: {min_second}, max fourth index: {max_fourth}")
+                            log_msg = f"Part {part_id} min second index: {min_second}, max fourth index: {max_fourth}"
+                            #print(log_msg)
+                            logging.info(log_msg)
 
                             # Cut and save image for this part
                             if image_obj and min_second is not None and max_fourth is not None:
@@ -286,12 +302,19 @@ class Cutter:
                                 # Ensure bounds are within image
                                 width, height = image_obj.size
                                 top = max(0, min_second - self.img_padding)
+                                print("Height: ", height)
+                                print("max_fourth: ", max_fourth)
                                 bottom = min(height, max_fourth + self.img_padding)
-                                cropped = image_obj.crop((0, top, width, bottom))     
-                                img_out_file = self.particcellas_img_dir / f"{file_stem}_P{str(idx+1).zfill(2)}.png"
-                                cropped.save(img_out_file)
+                                if top <= bottom:
+                                    cropped = image_obj.crop((0, top, width, bottom))     
+                                    img_out_file = self.particcellas_img_dir / f"{file_stem}_P{str(idx+1).zfill(2)}.png"
+                                    cropped.save(img_out_file)
+                                else:
+                                    print("ValueError: Coordinate 'lower' is less than 'upper'")
+                                    continue
                             else:
                                 print(f"Could not cut image for part {part_id} (missing image or bbox info)")
+                                continue
 
                             # Copy all elements before part-list
                             new_root = ET.Element(root.tag, root.attrib)
