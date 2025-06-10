@@ -145,6 +145,10 @@ class Cutter:
             return None
         
     def is_monophonic(self, part):
+        # Return False if the part has a staff-layout item
+        if part.find(".//staff-layout") is not None:
+            return False
+
         staff_voices = {}  # maps staff number to set of voices used
 
         for measure in part.findall("measure"):
