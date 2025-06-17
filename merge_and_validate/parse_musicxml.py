@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple, cast
 from xml.etree import ElementTree as ET
 import json
+import requests
 
 #from mxml import symbol_table as ST
 from mxml import state as MST
@@ -10,6 +11,8 @@ from mxml import musicxml as MXML
 from mxml.symbols import Clef, TimeSig, Key, Errors
 from mxml import types as TT
 MeasureID = Tuple[str, str]
+
+from config import username, password, backend_url
 
 
 class UnsupportedElement(ValueError):
@@ -21,11 +24,19 @@ class ParserMXML():
 
     _ALL_STAVES = -1
 
-    def __init__(self, folder_path, print_attributes, print_notes) -> None:
+    def __init__(self, print_attributes, print_notes) -> None:
+        
+        # Backend info
+        self.backend_base_url = backend_url
+        self.username = username
+        self.password = password
+
+        #Backend pre-opsAdd commentMore actions
+        self._authenticate()
+        self.projects_dict = self._fetch_projects()
 
         self.states: List[MST.ScoreState] = []
         #self.symbol_table = ST.SymbolTable()
-        self.folder_path = folder_path
         self.print_attributes = print_attributes
         self.print_notes = print_notes
         self.error_dict = {}
@@ -43,103 +54,169 @@ class ParserMXML():
         #self.group_stack: GroupStack = GroupStack(self.states, self.symbol_table)
         #self.last_measure: Optional[MTN.AST.Measure] = None
 
+    def _authenticate(self):
+
+        global GLOBAL_ACCESS_TOKEN
+        url = f"{self.backend_base_url}/token"
+        data = {
+            'grant_type': 'password',
+            'username': self.username,
+            'password': self.password,
+            'scope': '',
+            'client_id': '',
+            'client_secret': '',
+        }
+        headers = {'Content-Type': 'application/x-www-form-urlencoded'}
+        try:
+            response = requests.post(url, data=data, headers=headers)
+            response.raise_for_status()
+            token_data = response.json()
+            GLOBAL_ACCESS_TOKEN = token_data.get('access_token')
+            if not GLOBAL_ACCESS_TOKEN:
+                raise Exception("No access_token in response")
+        except Exception as e:
+            print(f"Error authenticating with backend: {e}")
+            GLOBAL_ACCESS_TOKEN = None
+
+    def _fetch_projects(self):
+        global GLOBAL_ACCESS_TOKEN
+        url = f"{self.backend_base_url}/projects"
+        headers = {}
+        if GLOBAL_ACCESS_TOKEN:
+            headers['Authorization'] = f"Bearer {GLOBAL_ACCESS_TOKEN}"
+        try:
+            response = requests.get(url, headers=headers)
+            response.raise_for_status()
+            projects = response.json()
+            return {proj["project_id"]: proj["project_name"] for proj in projects}
+        except Exception as e:
+            print(f"Error fetching projects from backend: {e}")
+            return {}
+
+
+    def _fetch_lines(self, project_id):
+        global GLOBAL_ACCESS_TOKEN
+        url = f"{self.backend_base_url}/lines/{project_id}"
+        headers = {}
+        if GLOBAL_ACCESS_TOKEN:
+            headers['Authorization'] = f"Bearer {GLOBAL_ACCESS_TOKEN}"
+        try:
+            response = requests.get(url, headers=headers)
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            print(f"Error fetching lines for project {project_id}: {e}")
+            return None
+
+
+    def _fetch_musicxml(self, project_id, line_id):
+        global GLOBAL_ACCESS_TOKEN
+        url = f"{self.backend_base_url}/transcription/musicxml/{project_id}/{line_id}"
+        headers = {}
+        if GLOBAL_ACCESS_TOKEN:
+            headers['Authorization'] = f"Bearer {GLOBAL_ACCESS_TOKEN}"
+        try:
+            response = requests.get(url, headers=headers)
+            response.raise_for_status()
+            return response.content
+        except Exception as e:
+            print(f"Error fetching musicxml for project {project_id}, line {line_id}: {e}")
+            return None
+
     def return_faulty(
         self,
     ) -> None:
         """
         Primera passada que comprovi quins scores son erronis comparant els clefs a diferents linies
         """
-        assert self.folder_path is not None, "Please specify which folder to be checked for errors"
-        last_mxml = None
+        for project_id, project_name in self.projects_dict.items():
+            if "UAB_LICEU_222570.087" not in project_name:
+                continue
+            lines_info = self._fetch_lines(project_id)
+            if not lines_info or "line_ids" not in lines_info:
+                continue
+            for line_id in lines_info["line_ids"]:
+                print(f"Processing: {project_name} (ID: {project_id}) line {line_id}")
+                musicxml_bytes = self._fetch_musicxml(project_id, line_id)
+                if not musicxml_bytes:
+                    continue
+                try:
+                    tree = ET.ElementTree(ET.fromstring(musicxml_bytes))
+                except Exception as e:
+                    print(f"Error parsing MusicXML for project {project_id}, line {line_id}: {e}")
+                    continue
 
-        for folder in os.listdir(self.folder_path):
-            folder_path = os.path.join(self.folder_path, folder)
-            if os.path.isdir(folder_path):
-                print("Processing folder: " + folder)
-                mxml_folder = os.path.join(folder_path, "MUSICXML")
-                # Iterem segons cada carpeta (Ex: CVC.S01.P01) i comparem cada linia amb la seguent
-                for score in os.listdir(folder_path):
-                    if score.lower().endswith('.jpg'):
-                        for mxml_file in sorted(os.listdir(mxml_folder)):
-                            if score[:-4] in mxml_file and 'cvc205' not in mxml_file:
-                                # Agafar score state per tenir initial_attributes i last_attributes
-                                print("Processing line: " + mxml_file)
-                                self.states.append(MST.ScoreState(self.print_notes))
-                                mxml_path = os.path.join(mxml_folder, mxml_file)
-                                self.parse_for_attributes(mxml_path)
+                self.states.append(MST.ScoreState(self.print_notes))
+                self.parse_for_attributes(tree)
+                if(self.print_attributes):
+                    print("INITIAL!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+                    print(self.states[-1].initial_attributes)
+                    print("CURRENT!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+                    print(self.states[-1].current_attributes)
 
-                                if(self.print_attributes):
-                                    print("INITIAL!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-                                    print(self.states[-1].initial_attributes)
-                                    print("CURRENT!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-                                    print(self.states[-1].current_attributes)
-                                
-                                if last_mxml is not None:
-                                    self.check_attributes(folder, score[:-4], mxml_file)
+                if line_id != 1:
+                    self.check_attributes(project_name, line_id)
 
-                                '''if "XAC_ACAN_SMIAu94_002.03" in mxml_file:
-                                    exit()'''
-
-                                last_mxml = mxml_file
-                        last_mxml = None
-                        self.states = []
+            self.states = []
 
         with open("faulty_files.json", "w") as json_file:
             json.dump(self.error_dict, json_file, indent=4)
         print("Operació completada! S'han guardat els errors a faulty_files.json")
 
 
-    def check_attributes(self, folder: str, score: str, mxml_file: str) -> None:
+    def check_attributes(self, score: str, line_id: int) -> None:
         # Comprovar diferencies entre clef, key i time de self.states[-2].current_attributes i self.states[-1].initial_attributes
 
         # CLEF
-        if self.states[-1].initial_attributes.clef is None:
-            self.save_error_to_dict(folder, score, mxml_file, Errors.NoClef)
+        if self.states[-1].initial_attributes.clef == []:
+            self.save_error_to_dict(score, line_id, Errors.NoClef)
         else:
-            if self.states[-2].current_attributes.clef is not None:
-                error = self.states[-2].current_attributes.clef.compare(self.states[-1].initial_attributes.clef) 
-                if error is not None and not self.states[-1].initial_attributes.clef.print_object:
-                    self.save_error_to_dict(folder, score, mxml_file, error)
+            if self.states[-2].current_attributes.clef != []:
+                for clef in self.states[-1].initial_attributes.clef:
+                    error = clef.compare(self.states[-2].current_attributes.clef) 
+                    if error is not None and not clef.print_object:
+                        self.save_error_to_dict(score, line_id, error)
         
         # KEY
-        if self.states[-1].initial_attributes.key is None:
-            self.save_error_to_dict(folder, score, mxml_file, Errors.NoKey)
+        if self.states[-1].initial_attributes.key == []:
+            self.save_error_to_dict(score, line_id, Errors.NoKey)
         else:
             if self.states[-2].current_attributes.key is not None:
-                error = self.states[-2].current_attributes.key.compare(self.states[-1].initial_attributes.key)
-                if error is not None and not self.states[-1].initial_attributes.key.print_object:
-                    self.save_error_to_dict(folder, score, mxml_file, error)
+                for key in self.states[-1].initial_attributes.key:
+                    error = key.compare(self.states[-2].current_attributes.key)
+                    if error is not None and not key.print_object:
+                        self.save_error_to_dict(score, line_id, error)
 
         # TIMESIG
-        if self.states[-1].initial_attributes.timesig is None:
-            self.save_error_to_dict(folder, score, mxml_file, Errors.NoTimesig)
+        if self.states[-1].initial_attributes.timesig == []:
+            self.save_error_to_dict(score, line_id, Errors.NoTimesig)
         else:
             if self.states[-2].current_attributes.timesig is not None:
-                error =  self.states[-2].current_attributes.timesig.compare(self.states[-1].initial_attributes.timesig)
-                if error is not None and not self.states[-1].initial_attributes.timesig.print_object:
-                    self.save_error_to_dict(folder, score, mxml_file, error)
+                for time in self.states[-1].initial_attributes.timesig:
+                    error =  time.compare(self.states[-2].current_attributes.timesig)
+                    if error is not None and not time.print_object:
+                        self.save_error_to_dict(score, line_id, error)
 
 
-    def parse_for_attributes(self, mxml_file: Path) -> None:
+    def parse_for_attributes(self, mxml_tree: ET.ElementTree) -> None:
         '''
         Funció que actualitzi el score states de la linea amb els atributs inicials i els finals, perque es puguin comparar i veure
           si es canvia de clef amb print_object = Fals (Cas erroni) a la seguent linia
         '''
-        root = ET.parse(mxml_file).getroot()
+        root = mxml_tree.getroot()
         for child in root:
             if child.tag == "part":
                 self._visit_part(child)
 
 
-    def save_error_to_dict(self, folder: str, score: str, mxml_file: str, error: Errors) -> None:
-        if folder not in self.error_dict:
-                self.error_dict[folder] = {}
-        if score not in self.error_dict[folder]:
-            self.error_dict[folder][score] = {}
-        if mxml_file not in self.error_dict[folder][score]:
-            self.error_dict[folder][score][mxml_file] = [error.value]
+    def save_error_to_dict(self, score: str, mxml_file: str, error: Errors) -> None:
+        
+        if score not in self.error_dict:
+                self.error_dict[score] = {}
+        if mxml_file not in self.error_dict[score]:
+            self.error_dict[score][mxml_file] = [error.value]
         else:
-            self.error_dict[folder][score][mxml_file].append(error.value)
+            self.error_dict[score][mxml_file].append(error.value)
 
 
     def _visit_part(
@@ -252,11 +329,11 @@ class ParserMXML():
             for clef_elm in clef_elements:
                 clef = self._visit_clef(clef_elm)
                 #print(clef)
-                output_attributes.clef = clef
+                output_attributes.clef.append(clef)
 
             for timesig_elm in timesig_elements:
                 timesig = self._visit_time(timesig_elm)
-                output_attributes.timesig = timesig
+                output_attributes.timesig.append(timesig)
                 
             # Merge once to account for the new clef and time, since these are needed for
             # the correct position of key accidentals (could merge a dict and pass it as
@@ -266,7 +343,7 @@ class ParserMXML():
 
             for key_elm in key_elements:
                 key_processed = self._visit_key(key_elm)
-                output_attributes.key = key_processed
+                output_attributes.key.append(key_processed)
 
             self.states[-1].attributes = output_attributes
             
@@ -293,8 +370,8 @@ class ParserMXML():
 
         line_element = clef.find("line")
 
-        '''staff_element = clef.get("number", "1")
-        staff = int(staff_element)'''
+        staff_element = clef.get("number", "1")
+        staff = int(staff_element)
 
         print_object_element = clef.get("print-object", "yes")
         print_object = print_object_element == "yes"
@@ -314,7 +391,8 @@ class ParserMXML():
             clef_type,
             oct_change,
             line_element,
-            print_object
+            print_object,
+            staff
         )
     
     def _visit_time(
@@ -323,6 +401,7 @@ class ParserMXML():
     ) -> TimeSig:
         
         time_type = TT.TimeSymbol(time.get("symbol", "normal"))
+
         staff_val: Optional[str] = time.get("number", None)
         if staff_val is None:
             staff = self._ALL_STAVES
@@ -330,7 +409,6 @@ class ParserMXML():
             staff = int(staff_val)
 
         beats, beat_type = self._extract_beats_and_type(time)
-
         print_object = time.get("print-object", "yes") == "yes"
 
         if time_type == TT.TimeSymbol.NOTE:
@@ -431,13 +509,15 @@ class ParserMXML():
         print_object_element = key.get("print-object", "yes")
         print_object = print_object_element == "yes"
 
-        key_fifths = Key(key, is_fifths=True, print_object=print_object, fifths=fifths, cancel=cancel)
-
-        if(len(self.states) > 1):
-            key_fifths.convert_fifths_to_key_alter(self.states[-2].current_attributes.key)
+        staff_val: Optional[str] = key.get("number", None)
+        if staff_val is None:
+            staff = self._ALL_STAVES
         else:
-            key_fifths.convert_fifths_to_key_alter()
+            staff = int(staff_val)
 
+        key_fifths = Key(key, is_fifths=True, print_object=print_object, fifths=fifths, cancel=cancel, staff=staff)
+
+        key_fifths.convert_fifths_to_key_alter()
         key_fifths.order_by_alter_steps()
 
         return key_fifths
@@ -463,6 +543,12 @@ class ParserMXML():
         alter_steps = []
         alter_values = []
         alter_symbols = []
+
+        staff_val: Optional[str] = key.get("number", None)
+        if staff_val is None:
+            staff = self._ALL_STAVES
+        else:
+            staff = int(staff_val)
 
         for child in key:
             if child.tag == "key-step":
@@ -490,7 +576,7 @@ class ParserMXML():
         print_object = print_object_element == "yes"
 
         actual_key = Key(key, is_fifths=False, print_object=print_object, alter_steps=alter_steps, 
-                   alter_value=alter_values #, alter_accidentals=alter_symbols
+                   alter_value=alter_values, staff=staff #, alter_accidentals=alter_symbols
                    )
         
         #Si no es la primera key, actualitzar la key anterior amb els canvis afegits a aquesta

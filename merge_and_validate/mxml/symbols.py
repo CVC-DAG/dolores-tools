@@ -78,20 +78,22 @@ class Clef:
         sign: TT.ClefSign = None,
         octave_change: int = None,
         line: int = None,
-        print_object: bool = None
+        print_object: bool = None,
+        staff: int = 1
     ) -> None:
         self.xml_object = xml_object
         self.sign = sign
         self.octave_change = octave_change
         self.line = line
         self.print_object = print_object
+        self.staff = staff
     
     def __str__(self) -> str:
         """Get simple representation for debugging purposes."""
         return (
             f"========= CLEF =========\nsign: {self.sign}\nOctave_Change:"
             f" {self.octave_change}\nLine: {self.line}\nPrint_Object:"
-            f" {self.print_object}"
+            f" {self.print_object} \nStaff: {self.staff}"
         ) + "\n - - -\n"
     
     def copy(self) -> "Clef":
@@ -102,9 +104,16 @@ class Clef:
             self.key.copy(),
         )
     
-    def compare(self, other: object) -> Errors:
-        if not isinstance(other, Clef):
-            return NotImplemented
+    def compare(self, other_clefs: list[object]) -> Errors:
+        
+        other = None
+        for clef in other_clefs:
+            if clef.staff == self.staff or clef.staff == -1 or self.staff == -1:
+                other = clef
+                break
+        if other == None:
+            return Errors.NoClef
+
         if self.sign != other.sign or self.octave_change != other.octave_change:
             return Errors.ClefChangeNoPrintError
         return None
@@ -129,14 +138,20 @@ class TimeSig:
         return (
             f"========= TIME_SIG =========\nTime_Value: {self.time_value}\nStaff:"
             f" {self.staff}\nTime_Type: {self.time_type}\nPrint_Object:"
-            f" {self.print_object}"
+            f" {self.print_object} \nStaff: {self.staff}"
         ) + "\n - - -\n"
     
-    def compare(self, other: object) -> Errors:
-        if not isinstance(other, TimeSig):
-            return NotImplemented
-        if self.time_value != other.time_value or self.staff != other.staff or \
-            self.time_type != other.time_type:
+    def compare(self, other_times: object) -> Errors:
+        
+        other = None
+        for time in other_times:
+            if time.staff == self.staff or time.staff == -1 or self.staff == -1:
+                other = time
+                break
+        if other == None:
+            return Errors.NoTimesig
+
+        if self.time_value != other.time_value or self.staff != other.staff:
             return Errors.TimesigChangeNoPrintError
         return None
     
@@ -151,6 +166,7 @@ class Key:
         cancel: Optional[int] = None,
         alter_steps: Optional[List[MXML.Step]] = None,
         alter_value: Optional[List[int]] = None,
+        staff: int = None
         #alter_accidentals: Optional[List[TT.AccidentalValue]] = None
     ) -> None:
         self.xml_object = xml_object
@@ -160,6 +176,7 @@ class Key:
         self.cancel = cancel
         self.alter_steps = alter_steps
         self.alter_value = alter_value
+        self.staff = staff
         #self.alter_accidentals = alter_accidentals
     
     def __str__(self) -> str:
@@ -177,37 +194,20 @@ class Key:
             f"========= KEY =========\nAlter Steps: {self.alter_steps}"
             f"\nAlter Value: {self.alter_value}"
             #f"\nAlter Accidentals: {self.alter_accidentals}"
-            f"\nPrint_Object: {self.print_object}"
+            f"\nPrint_Object: {self.print_object} \nStaff: {self.staff}"
             ) + "\n - - -\n"
+
     
-    '''def compare(self, other: object) -> Errors:
-        if not isinstance(other, Key):
-            return NotImplemented
-        if self.is_fifths != other.is_fifths:
-            if self.is_fifths:
-                conversion_error = other.convert_key_alter_to_fifths(self.fifths)
-                if self.fifths != other.fifths or conversion_error:
-                    return Errors.Fifths2AlterError
-                else:
-                    return Errors.Fifths2AlterEquivalent
-            else:
-                conversion_error = self.convert_key_alter_to_fifths()
-                if self.fifths != other.fifths or conversion_error:
-                    return Errors.Alter2FifthsError
-                else:
-                    return Errors.Alter2FifthsEquivalent
-        if self.is_fifths:
-            if self.fifths != other.fifths:
-                return Errors.Fifhts2FifthsError
-        else:
-            if self.alter_steps != other.alter_steps or self.alter_value != other.alter_value \
-                or self.alter_accidentals != other.alter_accidentals:
-                return Errors.Alter2AlterError
-        return None'''
-    
-    def compare(self, other: object) -> Errors:
-        if not isinstance(other, Key):
-            return NotImplemented
+    def compare(self, other_keys: object) -> Errors:
+
+        other = None
+        for key in other_keys:
+            if key.staff == self.staff or key.staff == -1 or self.staff == -1:
+                other = key
+                break
+        if other == None:
+            return Errors.NoKey
+
         if self.alter_steps != other.alter_steps or self.alter_value != other.alter_value:
             return Errors.KeyChangeNoPrintError
         return None
@@ -316,7 +316,7 @@ class Key:
         return False
             
 
-    def convert_fifths_to_key_alter(self, previous_key: object = None) -> None:
+    def convert_fifths_to_key_alter(self) -> None:
         """
         Converts a <fifths> value in a <key> element into corresponding
         <key-step> and <key-alter> subelements.
@@ -354,12 +354,21 @@ class Key:
 
 
 
-    def get_absolute_keys(self, previous_key: object = None) -> None:
+    def get_absolute_keys(self, previous_keys: list[object]) -> None:
         """
         Agafar key anterior, aplicar canvis a la nova key, i actualitzar la key nova amb aquests canvis.
         D'alguna forma ens quedem amb la key absoluta
         """
 
+        #Agafa la key anterior del mateix staff
+        previous_key = None
+        for key in previous_keys:
+            if key.staff == self.staff or key.staff == -1 or self.staff == -1:
+                previous_key = key
+                break
+        if previous_key == None:
+            return
+        
         actual_steps = previous_key.alter_steps.copy()
         actual_value = previous_key.alter_value.copy()
         #actual_accidentals = previous_key.alter_accidentals.copy()

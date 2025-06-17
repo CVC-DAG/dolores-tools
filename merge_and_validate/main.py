@@ -21,20 +21,13 @@ class WorkCatalogue:
 
 
 def main(args: Namespace) -> None:
-    mxml_parser = ParserMXML(args.dolores_path, args.print_attributes, args.print_notes)
+    mxml_parser = ParserMXML(args.print_attributes, args.print_notes)
     mxml_parser.return_faulty()
 
 
 def setup() -> Namespace:
     parser = ArgumentParser()
-
-    parser.add_argument(
-        "--dolores_path",
-        type=Path,
-        help="For now it will be a CVC.S01.P01 type folder, in the future it will be the " \
-        "general Dolores folder",
-    )
-
+    
     parser.add_argument('--print_attributes', action='store_true', help='Print all attributes')
     parser.add_argument('--print_notes', action='store_true', help='Print all attributes')
 

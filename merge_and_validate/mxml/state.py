@@ -16,9 +16,9 @@ class Attributes:
     def __init__(
         self,
         xml_object: ET.Element = None,
-        clef: Clef = None,
-        timesig: TimeSig = None,
-        key: Key = None
+        clef: Clef = [],
+        timesig: TimeSig = [],
+        key: Key = []
     ) -> None:
         self.xml_object = xml_object
         self.clef = clef
@@ -39,19 +39,51 @@ class Attributes:
 
         self.xml_object = other.xml_object
 
-        if other.key is not None:
-            self.key = other.key
-        if other.clef is not None:
-            self.clef = other.clef
-        if other.timesig is not None:
-            self.timesig = other.timesig
+        # Merge keys by staff
+        if other.key:
+            self_keys_by_staff = {k.staff: k for k in self.key}
+            other_keys_by_staff = {k.staff: k for k in other.key}
+
+            if -1 in other_keys_by_staff.keys():
+                self_keys_by_staff = {}
+
+            for staff, other_key in other_keys_by_staff.items():
+                self_keys_by_staff[staff] = other_key
+
+            self.key = list(self_keys_by_staff.values())
+
+        # Merge clefs
+        if other.clef:
+            self_clef_by_staff = {k.staff: k for k in self.clef}
+            other_clef_by_staff = {k.staff: k for k in other.clef}
+
+            for staff, other_clef in other_clef_by_staff.items():
+                self_clef_by_staff[staff] = other_clef
+
+            self.clef = list(self_clef_by_staff.values())
+
+        # Merge timesigs
+        if other.timesig:
+            self_timesig_by_staff = {k.staff: k for k in self.timesig}
+            other_timesig_by_staff = {k.staff: k for k in other.timesig}
+
+            if -1 in other_timesig_by_staff.keys():
+                self_timesig_by_staff = {}
+
+            for staff, other_timesig in other_timesig_by_staff.items():
+                self_timesig_by_staff[staff] = other_timesig
+
+            self.timesig = list(self_timesig_by_staff.values())
 
     def __str__(self) -> str:
+        clef_str = "\n".join(str(c) for c in self.clef)
+        key_str = "\n".join(str(k) for k in self.key)
+        time_str = "\n".join(str(t) for t in self.timesig)
         return (
             "===== ATTRIBUTES =====\n"
-            f"{self.clef}\n"
-            f"{self.key}\n"
-            f"{self.timesig}\n"
+            f"Clefs:\n{clef_str}\n"
+            f"Key: {key_str}\n"
+            f"TimeSig: {time_str}\n"
             "=======================\n"
         )
     
