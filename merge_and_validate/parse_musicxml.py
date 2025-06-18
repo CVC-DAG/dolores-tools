@@ -31,11 +31,11 @@ class ParserMXML():
         self.username = username
         self.password = password
 
-        #Backend pre-opsAdd commentMore actions
+        #Backend pre-ops
         self._authenticate()
         self.projects_dict = self._fetch_projects()
 
-        self.states: List[MST.ScoreState] = []
+        self.states: Dict[List[MST.ScoreState]] = {}
         #self.symbol_table = ST.SymbolTable()
         self.print_attributes = print_attributes
         self.print_notes = print_notes
@@ -148,18 +148,21 @@ class ParserMXML():
                     print(f"Error parsing MusicXML for project {project_id}, line {line_id}: {e}")
                     continue
 
-                self.states.append(MST.ScoreState(self.print_notes))
                 self.parse_for_attributes(tree)
                 if(self.print_attributes):
                     print("INITIAL!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-                    print(self.states[-1].initial_attributes)
+                    for part in self.states.keys():
+                        print("PART ", part+1)
+                        print(self.states[part][-1].initial_attributes)
                     print("CURRENT!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-                    print(self.states[-1].current_attributes)
+                    for part in self.states.keys():
+                        print("PART ", part+1)
+                        print(self.states[part][-1].current_attributes)
 
                 if line_id != 1:
                     self.check_attributes(project_name, line_id)
 
-            self.states = []
+            self.states = {}
 
         with open("faulty_files.json", "w") as json_file:
             json.dump(self.error_dict, json_file, indent=4)
@@ -167,37 +170,39 @@ class ParserMXML():
 
 
     def check_attributes(self, score: str, line_id: int) -> None:
-        # Comprovar diferencies entre clef, key i time de self.states[-2].current_attributes i self.states[-1].initial_attributes
-
-        # CLEF
-        if self.states[-1].initial_attributes.clef == []:
-            self.save_error_to_dict(score, line_id, Errors.NoClef)
-        else:
-            if self.states[-2].current_attributes.clef != []:
-                for clef in self.states[-1].initial_attributes.clef:
-                    error = clef.compare(self.states[-2].current_attributes.clef) 
-                    if error is not None and not clef.print_object:
-                        self.save_error_to_dict(score, line_id, error)
         
-        # KEY
-        if self.states[-1].initial_attributes.key == []:
-            self.save_error_to_dict(score, line_id, Errors.NoKey)
-        else:
-            if self.states[-2].current_attributes.key is not None:
-                for key in self.states[-1].initial_attributes.key:
-                    error = key.compare(self.states[-2].current_attributes.key)
-                    if error is not None and not key.print_object:
-                        self.save_error_to_dict(score, line_id, error)
+        # Comprovar diferencies entre clef, key i time de self.states[-2].current_attributes i self.states[-1].initial_attributes
+        for part in self.states.keys():
 
-        # TIMESIG
-        if self.states[-1].initial_attributes.timesig == []:
-            self.save_error_to_dict(score, line_id, Errors.NoTimesig)
-        else:
-            if self.states[-2].current_attributes.timesig is not None:
-                for time in self.states[-1].initial_attributes.timesig:
-                    error =  time.compare(self.states[-2].current_attributes.timesig)
-                    if error is not None and not time.print_object:
-                        self.save_error_to_dict(score, line_id, error)
+            # CLEF
+            if self.states[part][-1].initial_attributes.clef == []:
+                self.save_error_to_dict(score, line_id, part+1, Errors.NoClef)
+            else:
+                if self.states[part][-2].current_attributes.clef != []:
+                    for clef in self.states[part][-1].initial_attributes.clef:
+                        error = clef.compare(self.states[part][-2].current_attributes.clef) 
+                        if error is not None and not clef.print_object:
+                            self.save_error_to_dict(score, line_id, part+1, error)
+
+            # KEY
+            if self.states[part][-1].initial_attributes.key == []:
+                self.save_error_to_dict(score, line_id, part+1, Errors.NoKey)
+            else:
+                if self.states[part][-2].current_attributes.key is not None:
+                    for key in self.states[part][-1].initial_attributes.key:
+                        error = key.compare(self.states[part][-2].current_attributes.key)
+                        if error is not None and not key.print_object:
+                            self.save_error_to_dict(score, line_id, part+1, error)
+
+            # TIMESIG
+            if self.states[part][-1].initial_attributes.timesig == []:
+                self.save_error_to_dict(score, line_id, part+1, Errors.NoTimesig)
+            else:
+                if self.states[part][-2].current_attributes.timesig is not None:
+                    for time in self.states[part][-1].initial_attributes.timesig:
+                        error =  time.compare(self.states[part][-2].current_attributes.timesig)
+                        if error is not None and not time.print_object:
+                            self.save_error_to_dict(score, line_id, part+1, error)
 
 
     def parse_for_attributes(self, mxml_tree: ET.ElementTree) -> None:
@@ -205,53 +210,64 @@ class ParserMXML():
         Funció que actualitzi el score states de la linea amb els atributs inicials i els finals, perque es puguin comparar i veure
           si es canvia de clef amb print_object = Fals (Cas erroni) a la seguent linia
         '''
+        part_id = 0
         root = mxml_tree.getroot()
         for child in root:
             if child.tag == "part":
-                self._visit_part(child)
+                # Add state to that part state list
+                if part_id in self.states and isinstance(self.states[part_id], list):
+                    self.states[part_id].append(MST.ScoreState(self.print_notes))
+                else:
+                    self.states[part_id] = [MST.ScoreState(self.print_notes)]
+
+                self._visit_part(child, part_id)
+                part_id += 1
 
 
-    def save_error_to_dict(self, score: str, mxml_file: str, error: Errors) -> None:
+    def save_error_to_dict(self, score: str, line_id: str, part: int, error: Errors) -> None:
         
         if score not in self.error_dict:
                 self.error_dict[score] = {}
-        if mxml_file not in self.error_dict[score]:
-            self.error_dict[score][mxml_file] = [error.value]
+        if line_id not in self.error_dict[score]:
+            self.error_dict[score][line_id] = {}
+        if part not in self.error_dict[score][line_id]:
+            self.error_dict[score][line_id][part] = [error.value]
         else:
-            self.error_dict[score][mxml_file].append(error.value)
+            self.error_dict[score][line_id][part].append(error.value)
 
 
     def _visit_part(
         self,
         part_element: ET.Element,
+        part_id: int,
     ) -> None:
         for measure in part_element:
-            self._visit_measure(measure)
+            self._visit_measure(measure, part_id)
 
 
-    def _visit_measure(self, measure: ET.Element) -> None:
+    def _visit_measure(self, measure: ET.Element, part_id: int) -> None:
         for child in measure:
             if child.tag == "note":
-                self._preparse_note(child)
+                self._preparse_note(child, part_id)
             elif child.tag == "backup":
-                self._backup_or_forward(False, child)
+                self._backup_or_forward(False, child, part_id)
             elif child.tag == "forward":
-                self._backup_or_forward(True, child)
+                self._backup_or_forward(True, child, part_id)
             elif child.tag == "attributes":
-                self._visit_attributes(child)
-        self._new_measure()
+                self._visit_attributes(child, part_id)
+        self._new_measure(part_id)
         #self.states.change_time(Fraction(0))
 
-    def _new_measure(self) -> None:
+    def _new_measure(self, part_id) -> None:
         # print("NEW MEASURE", end="\n\n")
-        self.states[-1].new_measure()
+        self.states[part_id][-1].new_measure()
 
         # Soooo... apparently musicXML allows beams going from measure to measure...
         # self.group_stack.reset()
         #self.current_chord = {grace: None for grace in [False, True]}
     
 
-    def _preparse_note(self, note: ET.Element) -> None:
+    def _preparse_note(self, note: ET.Element, part_id: int) -> None:
         
         is_chord = note.find("chord")
         duration_element = note.find("duration")
@@ -260,22 +276,24 @@ class ParserMXML():
 
         duration = int(duration_element.text)
         #print(self.states[-1])
-        self.states[-1].set_buffer(duration)
+        self.states[part_id][-1].set_buffer(duration)
         #print(self.states[-1])
-        self.states[-1].move_buffer()
+        self.states[part_id][-1].move_buffer()
         #print(self.states[-1])
 
         if self.print_notes:
+            print("PART DE LA NOTA: ", part_id+1)
             print("NOTE!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-            print(self.states[-1].current_time)
+            print(self.states[part_id][-1].current_time)
             print("ATTRIBUTES DESPRES DE NOTA!!!!!!!!!!!!!!!!!!!!!!!!!") 
-            print(self.states[-1].current_attributes)
+            print(self.states[part_id][-1].current_attributes)
 
 
     def _backup_or_forward(
         self,
         forward: bool,
         element: ET.Element,
+        part_id: int
     ) -> None:
         value_element = element[0]
         assert (
@@ -285,12 +303,13 @@ class ParserMXML():
         increment = int(value_element.text)
         if not forward:
             increment *= -1
-        self.states[-1].increment_time(increment)
+        self.states[part_id][-1].increment_time(increment)
 
 
     def _visit_attributes(
             self,
             attributes: ET.Element,
+            part_id: int,
         ) -> None:
             """Process MXML attributes at a specific point in time and updates them in the score states
 
@@ -304,7 +323,7 @@ class ParserMXML():
             MTN.AST.MST.Attributes
                 The resulting attributes in MTN format.
             """
-            self.states[-1].move_buffer()
+            self.states[part_id][-1].move_buffer()
 
             key_elements: List[ET.Element] = []
             timesig_elements: List[ET.Element] = []
@@ -313,11 +332,11 @@ class ParserMXML():
             for child in attributes:
                 if child.tag == "divisions":
                     if child.text is not None:
-                        self.states[-1]._divisions = int(child.text)
+                        self.states[part_id][-1]._divisions = int(child.text)
                 elif child.tag == "staves":
                     nstaves = child.text
                     nstaves = cast(str, nstaves)
-                    self.states[-1].change_staves(int(nstaves))
+                    self.states[part_id][-1].change_staves(int(nstaves))
                 elif child.tag == "key":
                     key_elements.append(child)
                 elif child.tag == "time":
@@ -341,16 +360,16 @@ class ParserMXML():
             # the correct position of key accidentals (could merge a dict and pass it as
             # a parameter to the key processing function but I am lazy).
 
-            self.states[-1].attributes = output_attributes
+            self.states[part_id][-1].attributes = output_attributes
 
             for key_elm in key_elements:
-                key_processed = self._visit_key(key_elm)
+                key_processed = self._visit_key(key_elm, part_id)
                 output_attributes.key.append(key_processed)
 
-            self.states[-1].attributes = output_attributes
+            self.states[part_id][-1].attributes = output_attributes
             
-            if self.states[-1].initial_attributes.xml_object == None:
-                self.states[-1].initial_attributes = output_attributes
+            if self.states[part_id][-1].initial_attributes.xml_object == None:
+                self.states[part_id][-1].initial_attributes = output_attributes
 
 
     def _visit_clef(
@@ -458,6 +477,7 @@ class ParserMXML():
     def _visit_key(
         self,
         key: ET.Element,
+        part_id: int,
     ) -> Dict[int, Key]:
         """Visit a key element in MXML and get its information.
 
@@ -474,7 +494,7 @@ class ParserMXML():
         
         if key[0].tag in {"cancel", "fifths"}:
             return self._key_fifths(key)
-        return self._key_alters(key)
+        return self._key_alters(key, part_id)
     
 
     def _key_fifths(
@@ -528,7 +548,8 @@ class ParserMXML():
 
     def _key_alters(
         self,
-        key: ET.Element
+        key: ET.Element,
+        part_id: int,
     ) -> Key:
         """Process a key using a list of arbitrary alterations.
 
@@ -582,8 +603,8 @@ class ParserMXML():
                    )
         
         #Si no es la primera key, actualitzar la key anterior amb els canvis afegits a aquesta
-        if(len(self.states) > 1):
-            actual_key.get_absolute_keys(self.states[-2].current_attributes.key)
+        if(len(self.states[part_id]) > 1):
+            actual_key.get_absolute_keys(self.states[part_id][-2].current_attributes.key)
 
         actual_key.order_by_alter_steps()
 
