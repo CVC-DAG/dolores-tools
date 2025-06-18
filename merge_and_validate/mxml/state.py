@@ -16,14 +16,14 @@ class Attributes:
     def __init__(
         self,
         xml_object: ET.Element = None,
-        clef: Clef = [],
-        timesig: TimeSig = [],
-        key: Key = []
+        clef: Clef = None,
+        timesig: TimeSig = None,
+        key: Key = None
     ) -> None:
         self.xml_object = xml_object
-        self.clef = clef
-        self.timesig = timesig
-        self.key = key
+        self.clef = clef if clef is not None else []
+        self.timesig = timesig if timesig is not None else []
+        self.key = key if key is not None else []
 
     def merge(self, other: "Attributes") -> None:
         """Combine the contents of two attribute objects into the current one.

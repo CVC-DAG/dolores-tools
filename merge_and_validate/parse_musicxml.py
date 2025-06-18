@@ -130,7 +130,9 @@ class ParserMXML():
         Primera passada que comprovi quins scores son erronis comparant els clefs a diferents linies
         """
         for project_id, project_name in self.projects_dict.items():
-            if "UAB_LICEU_222570.087" not in project_name:
+            #if project_id < 22:
+            #    continue
+            if "CEDOC_CMM_1.5.1_0082.008" not in project_name:
                 continue
             lines_info = self._fetch_lines(project_id)
             if not lines_info or "line_ids" not in lines_info:
