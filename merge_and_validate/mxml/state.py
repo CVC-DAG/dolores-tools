@@ -82,8 +82,8 @@ class Attributes:
         return (
             "===== ATTRIBUTES =====\n"
             f"Clefs:\n{clef_str}\n"
-            f"Key: {key_str}\n"
-            f"TimeSig: {time_str}\n"
+            f"Keys:\n{key_str}\n"
+            f"TimeSig:\n{time_str}\n"
             "=======================\n"
         )
     

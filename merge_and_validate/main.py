@@ -21,7 +21,7 @@ class WorkCatalogue:
 
 
 def main(args: Namespace) -> None:
-    mxml_parser = ParserMXML(args.print_attributes, args.print_notes)
+    mxml_parser = ParserMXML(args.print_attributes, args.print_notes, args.time_equivalent, args.solve_error_1)
     mxml_parser.return_faulty()
 
 
@@ -30,6 +30,8 @@ def setup() -> Namespace:
     
     parser.add_argument('--print_attributes', action='store_true', help='Print all attributes')
     parser.add_argument('--print_notes', action='store_true', help='Print all attributes')
+    parser.add_argument('--time_equivalent', action='store_true', help='Do NOT count errors that consist of two equivalent time signatures')
+    parser.add_argument('--solve_error_1', action='store_true', help='Sometimes attributes get duplicated, first one with print-object=no and the second one with print-object=yes. This removes the second attribute and changes the first one to print-object=yes')
 
     return parser.parse_args()
 

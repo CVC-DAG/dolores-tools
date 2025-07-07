@@ -13,6 +13,7 @@ from mxml import types as TT
 MeasureID = Tuple[str, str]
 
 from config import username, password, backend_url
+import shutil
 
 
 class UnsupportedElement(ValueError):
@@ -24,7 +25,7 @@ class ParserMXML():
 
     _ALL_STAVES = -1
 
-    def __init__(self, print_attributes, print_notes) -> None:
+    def __init__(self, print_attributes, print_notes, time_equivalent, solve_error_1) -> None:
         
         # Backend info
         self.backend_base_url = backend_url
@@ -39,7 +40,15 @@ class ParserMXML():
         #self.symbol_table = ST.SymbolTable()
         self.print_attributes = print_attributes
         self.print_notes = print_notes
+        self.time_equivalent = time_equivalent
+        self.solve_error_1 = solve_error_1
         self.error_dict = {}
+
+        if self.solve_error_1:
+            self.fixed_dir = "../fixed_mxmls"
+            if os.path.exists(self.fixed_dir):
+                shutil.rmtree(self.fixed_dir)
+            os.makedirs(self.fixed_dir)
 
         #self.actual_line: int = None
 
@@ -130,13 +139,14 @@ class ParserMXML():
         Primera passada que comprovi quins scores son erronis comparant els clefs a diferents linies
         """
         for project_id, project_name in self.projects_dict.items():
-            #if project_id < 22:
+            #if "XAC_ACAN_SMIAu09_195" not in project_name:
             #    continue
-            if "CEDOC_CMM_1.5.1_0082.008" not in project_name:
-                continue
+            if project_id > 107:
+                break
             lines_info = self._fetch_lines(project_id)
             if not lines_info or "line_ids" not in lines_info:
                 continue
+            last_num_parts = None
             for line_id in lines_info["line_ids"]:
                 print(f"Processing: {project_name} (ID: {project_id}) line {line_id}")
                 musicxml_bytes = self._fetch_musicxml(project_id, line_id)
@@ -147,8 +157,19 @@ class ParserMXML():
                 except Exception as e:
                     print(f"Error parsing MusicXML for project {project_id}, line {line_id}: {e}")
                     continue
-
-                self.parse_for_attributes(tree)
+                
+                # Skip the few projects that change number of parts between lines
+                root = tree.getroot()
+                part_list = root.find("part-list")
+                if part_list is not None:
+                    score_parts = part_list.findall("score-part")
+                    num_parts = len(score_parts)
+                    if last_num_parts is not None:
+                        if num_parts != last_num_parts:
+                            break
+                    last_num_parts = num_parts
+                        
+                self.parse_for_attributes(root)
                 if(self.print_attributes):
                     print("INITIAL!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
                     for part in self.states.keys():
@@ -161,6 +182,9 @@ class ParserMXML():
 
                 if line_id != 1:
                     self.check_attributes(project_name, line_id)
+
+                if self.solve_error_1:
+                    self.check_error_1(project_name, project_id)
 
             self.states = {}
 
@@ -200,18 +224,17 @@ class ParserMXML():
             else:
                 if self.states[part][-2].current_attributes.timesig is not None:
                     for time in self.states[part][-1].initial_attributes.timesig:
-                        error =  time.compare(self.states[part][-2].current_attributes.timesig)
+                        error =  time.compare(self.states[part][-2].current_attributes.timesig, self.time_equivalent)
                         if error is not None and not time.print_object:
                             self.save_error_to_dict(score, line_id, part+1, error)
 
 
-    def parse_for_attributes(self, mxml_tree: ET.ElementTree) -> None:
+    def parse_for_attributes(self, root: ET.ElementTree) -> None:
         '''
         Funció que actualitzi el score states de la linea amb els atributs inicials i els finals, perque es puguin comparar i veure
           si es canvia de clef amb print_object = Fals (Cas erroni) a la seguent linia
         '''
         part_id = 0
-        root = mxml_tree.getroot()
         for child in root:
             if child.tag == "part":
                 # Add state to that part state list
@@ -222,6 +245,130 @@ class ParserMXML():
 
                 self._visit_part(child, part_id)
                 part_id += 1
+
+    def check_error_1(self, project_name: str, project_id: int) -> bool:
+        if project_name not in self.error_dict:
+            return False
+        
+        # AIXO POTSER PUC FER QUE JA HO FAGI AL PARSING INICIAL
+        # AIXI NO HAIG DE REPETIR PARSING I QUE TARDI TANT
+
+        error_lines = self.error_dict[project_name].keys()
+        for line_id in error_lines:
+            musicxml_bytes = self._fetch_musicxml(project_id, line_id)
+            root = ET.ElementTree(ET.fromstring(musicxml_bytes)).getroot()
+            error_parts = self.error_dict[project_name][line_id].keys()
+            for part_id in error_parts:
+
+                part = 1
+                for sub_root in root:
+                    if sub_root.tag == "part":
+                        if part_id == part:
+                            attributes_dict = {}
+                            attribute_id = 0
+                            for measure in sub_root:
+                                for sub_measure in measure:
+                                    if sub_measure.tag == "attributes":
+                                        output_attributes = MST.Attributes(sub_measure)
+
+                                        for sub_attributes in sub_measure:
+                                            if sub_attributes.tag == "key":
+                                                key = self._visit_key(sub_attributes)
+                                                output_attributes.key.append(key)
+                                            elif sub_attributes.tag == "time":
+                                                timesig = self._visit_time(sub_attributes)
+                                                output_attributes.timesig.append(timesig)
+                                            elif sub_attributes.tag == "clef":
+                                                clef = self._visit_clef(sub_attributes)
+                                                output_attributes.clef.append(clef)
+                                        
+                                        attributes_dict[attribute_id] = output_attributes
+                                        attribute_id += 1
+
+                            # FER QUE FUNCIONI AMB MULTIPLES STAVES !!!kjhdihiwpheghjsepg
+
+                            if Errors.ClefChangeNoPrintError in self.error_dict[project_name][line_id][part_id]:
+                                #Passar a funcio especifica (li passo clef o timesig o key per parametre aixi puc reutilitzar)
+                                first_clefs = None
+                                for actual_attribute_id, attributes in attributes_dict.items():
+                                    if first_clefs == None:
+                                        first_clefs = attributes.clef
+                                        first_attribute_id = actual_attribute_id
+                                    else:
+                                        if attributes.clef is not None:
+                                            for first_clef in first_clefs:
+                                                if first_clef.compare_for_error1(attributes.clef): 
+                                                    self.solve_error_1(project_name, project_id, root, "clef", attributes_dict, first_attribute_id, actual_attribute_id, part_id, first_clef.staff)
+                                            break                                   
+                        part += 1
+                
+                    
+    def solve_error_1(self, project_name: str, project_id: int, root: ET.ElementTree, element: str, attributes_dict, first_attribute_id: int, second_attribute_id: int, part_id: int, staff: int) -> None:
+        """
+        first_attribute_id -> Primer attribute on surt l'element indicat a la variable element (clef, key o timesig)
+        actual_attribute_id -> Segon attribute on surt l'element indicat a la variable element (clef, key o timesig)
+        """
+        part = 1
+        for sub_root in root:
+            if sub_root.tag == "part":
+                if part_id == part:
+                    attributes_dict = {}
+                    attribute_id = 0
+                    for measure in sub_root:
+                        for sub_measure in measure:
+                            if sub_measure.tag == "attributes":
+                                if first_attribute_id == attribute_id:
+                                    # LI HEM DE POSAR print_object = yes
+                                    if element == "clef":
+                                        for clef in sub_measure.findall("clef"):
+                                            staff_element = int(clef.get("number", "1"))
+                                            if staff_element == staff:        
+                                                if clef.get("print-object") == "no":
+                                                    clef.set("print-object", "yes")
+                                                    break
+                                    elif element == "key":
+                                        for clef in sub_measure.findall("clef"):
+                                            if clef.get("print-object") == "no":
+                                                clef.set("print-object", "yes")
+
+                                elif second_attribute_id == attribute_id:
+                                    # HEM DE POSAR print_object = no
+                                    if element == "clef":
+                                        for clef in sub_measure.findall("clef"):
+                                            staff_element = int(clef.get("number", "1"))
+                                            if staff_element == staff:   
+                                                if clef.get("print-object") == "yes":
+                                                    clef.set("print-object", "no")
+                                                    break
+                                attribute_id += 1
+                part += 1
+        
+
+
+        # QUAN FAGI SEGON CLEF/KEY/TIMESIG FER BREAK TOTAL FINS AQUI
+
+        fixed_path = os.path.join(self.fixed_dir, f"{project_id}.musicxml")
+        tree = ET.ElementTree(root)
+        tree.write(fixed_path, encoding="utf-8", xml_declaration=True)
+
+        
+
+
+    
+    def check_and_solve_error_2(self, project_name: str, project_id: int) -> bool:
+        if project_name not in self.error_dict:
+            return False
+        
+        errors = self.error_dict[project_name]
+
+        sorted_keys = sorted(int(k) for k in errors.keys())
+
+        # Store consecutive pairs (k, k+1)
+        consecutive_pairs = []
+        for i in range(len(sorted_keys) - 1):
+            if sorted_keys[i + 1] == sorted_keys[i] + 1:
+                pair = (str(sorted_keys[i]), str(sorted_keys[i + 1]))
+                consecutive_pairs.append(pair)
 
 
     def save_error_to_dict(self, score: str, line_id: str, part: int, error: Errors) -> None:

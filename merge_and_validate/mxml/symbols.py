@@ -104,8 +104,8 @@ class Clef:
             self.key.copy(),
         )
     
-    def compare(self, other_clefs: list[object]) -> Errors:
-        
+    def compare_get_errors(self, other_clefs: list[object]) -> Errors:
+
         other = None
         for clef in other_clefs:
             if clef.staff == self.staff or clef.staff == -1 or self.staff == -1:
@@ -117,6 +117,22 @@ class Clef:
         if self.sign != other.sign or self.octave_change != other.octave_change:
             return Errors.ClefChangeNoPrintError
         return None
+    
+
+    def compare_for_error1(self, other_clefs: list[object]) -> bool:
+
+        other = None
+        for clef in other_clefs:
+            if clef.staff == self.staff or clef.staff == -1 or self.staff == -1:
+                other = clef
+                break
+        if other == None:
+            return None
+
+        if self.sign == other.sign and self.octave_change == other.octave_change \
+            and not self.print_object and other.print_object:
+            return True
+        return True
 
 class TimeSig:
     def __init__(
@@ -136,12 +152,11 @@ class TimeSig:
     def __str__(self) -> str:
         """Get simple representation for debugging purposes."""
         return (
-            f"========= TIME_SIG =========\nTime_Value: {self.time_value}\nStaff:"
-            f" {self.staff}\nTime_Type: {self.time_type}\nPrint_Object:"
+            f"========= TIME_SIG =========\nTime_Value: {self.time_value}\nTime_Type: {self.time_type}\nPrint_Object:"
             f" {self.print_object} \nStaff: {self.staff}"
         ) + "\n - - -\n"
     
-    def compare(self, other_times: object) -> Errors:
+    def compare(self, other_times: object, time_equivalent: bool) -> Errors:
         
         other = None
         for time in other_times:
@@ -150,6 +165,13 @@ class TimeSig:
                 break
         if other == None:
             return Errors.NoTimesig
+        
+        if time_equivalent:
+            n1, d1 = self.time_value
+            n2, d2 = other.time_value
+            # Compare total note value per measure
+            if (int(n1[0]) / int(d1[0])) == (int(n2[0]) / int(d2[0])):
+                return None
 
         if self.time_value != other.time_value or self.staff != other.staff:
             return Errors.TimesigChangeNoPrintError
@@ -199,7 +221,16 @@ class Key:
 
     
     def compare(self, other_keys: object) -> Errors:
+        #Treiem zeros (naturals) de les alterations (self)
+        filtered = [(step, val) for step, val in zip(self.alter_steps, self.alter_value) if val != 0]
+        if filtered:
+            self_steps, self_values = zip(*filtered)
+            self_steps = list(self_steps)
+            self_values = list(self_values)
+        else:
+            self_steps, self_values = [], []
 
+        #Comparem amb other del mateix staff
         other = None
         for key in other_keys:
             if key.staff == self.staff or key.staff == -1 or self.staff == -1:
@@ -208,7 +239,16 @@ class Key:
         if other == None:
             return Errors.NoKey
 
-        if self.alter_steps != other.alter_steps or self.alter_value != other.alter_value:
+        #Treiem zeros (naturals) de les alterations (other)
+        filtered_other = [(step, val) for step, val in zip(other.alter_steps, other.alter_value) if val != 0]
+        if filtered_other:
+            other_steps, other_values = zip(*filtered_other)
+            other_steps = list(other_steps)
+            other_values = list(other_values)
+        else:
+            other_steps, other_values = [], []
+
+        if self_steps != other_steps or self_values != other_values:
             return Errors.KeyChangeNoPrintError
         return None
         
