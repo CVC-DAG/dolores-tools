@@ -25,7 +25,7 @@ class ParserMXML():
 
     _ALL_STAVES = -1
 
-    def __init__(self, print_attributes, print_notes, time_equivalent, solve_error_1) -> None:
+    def __init__(self, print_attributes, print_notes, time_equivalent, error_1, error_2) -> None:
         
         # Backend info
         self.backend_base_url = backend_url
@@ -41,14 +41,21 @@ class ParserMXML():
         self.print_attributes = print_attributes
         self.print_notes = print_notes
         self.time_equivalent = time_equivalent
-        self.solve_error_1 = solve_error_1
+        self.error_1 = error_1
+        self.error_2 = error_2
         self.error_dict = {}
 
-        if self.solve_error_1:
-            self.fixed_dir = "../fixed_mxmls"
-            if os.path.exists(self.fixed_dir):
-                shutil.rmtree(self.fixed_dir)
-            os.makedirs(self.fixed_dir)
+        if self.error_1:
+            self.fixed_dir_1 = "./fixed_mxmls_1"
+            if os.path.exists(self.fixed_dir_1):
+                shutil.rmtree(self.fixed_dir_1)
+            os.makedirs(self.fixed_dir_1)
+
+        if self.error_2:
+            self.fixed_dir_2 = "./fixed_mxmls_2"
+            if os.path.exists(self.fixed_dir_2):
+                shutil.rmtree(self.fixed_dir_2)
+            os.makedirs(self.fixed_dir_2)
 
         #self.actual_line: int = None
 
@@ -183,8 +190,11 @@ class ParserMXML():
                 if line_id != 1:
                     self.check_attributes(project_name, line_id)
 
-                if self.solve_error_1:
-                    self.check_error_1(project_name, project_id)
+                if self.error_1:
+                    self.check_error_1(project_name, project_id, line_id)
+
+            if self.error_2:
+                    self.check_error_2(project_name, project_id)    
 
             self.states = {}
 
@@ -204,7 +214,7 @@ class ParserMXML():
             else:
                 if self.states[part][-2].current_attributes.clef != []:
                     for clef in self.states[part][-1].initial_attributes.clef:
-                        error = clef.compare(self.states[part][-2].current_attributes.clef) 
+                        error = clef.compare_get_errors(self.states[part][-2].current_attributes.clef) 
                         if error is not None and not clef.print_object:
                             self.save_error_to_dict(score, line_id, part+1, error)
 
@@ -246,64 +256,91 @@ class ParserMXML():
                 self._visit_part(child, part_id)
                 part_id += 1
 
-    def check_error_1(self, project_name: str, project_id: int) -> bool:
+
+    def check_error_1(self, project_name: str, project_id: int, line_id: int) -> bool:
         if project_name not in self.error_dict:
+            return False
+        if line_id not in self.error_dict[project_name].keys():
             return False
         
         # AIXO POTSER PUC FER QUE JA HO FAGI AL PARSING INICIAL
         # AIXI NO HAIG DE REPETIR PARSING I QUE TARDI TANT
+        
+        musicxml_bytes = self._fetch_musicxml(project_id, line_id)
+        root = ET.ElementTree(ET.fromstring(musicxml_bytes)).getroot()
+        error_parts = self.error_dict[project_name][line_id].keys()
+        for part_id in error_parts:
 
-        error_lines = self.error_dict[project_name].keys()
-        for line_id in error_lines:
-            musicxml_bytes = self._fetch_musicxml(project_id, line_id)
-            root = ET.ElementTree(ET.fromstring(musicxml_bytes)).getroot()
-            error_parts = self.error_dict[project_name][line_id].keys()
-            for part_id in error_parts:
+            part = 1
+            for sub_root in root:
+                if sub_root.tag == "part":
+                    if part_id == part:
+                        attributes_dict = {}
+                        attribute_id = 0
+                        for measure in sub_root:
+                            for sub_measure in measure:
+                                if sub_measure.tag == "attributes":
+                                    output_attributes = MST.Attributes(sub_measure)
 
-                part = 1
-                for sub_root in root:
-                    if sub_root.tag == "part":
-                        if part_id == part:
-                            attributes_dict = {}
-                            attribute_id = 0
-                            for measure in sub_root:
-                                for sub_measure in measure:
-                                    if sub_measure.tag == "attributes":
-                                        output_attributes = MST.Attributes(sub_measure)
+                                    for sub_attributes in sub_measure:
+                                        if sub_attributes.tag == "key":
+                                            key = self._visit_key(sub_attributes, part_id-1)
+                                            output_attributes.key.append(key)
+                                        elif sub_attributes.tag == "time":
+                                            timesig = self._visit_time(sub_attributes)
+                                            output_attributes.timesig.append(timesig)
+                                        elif sub_attributes.tag == "clef":
+                                            clef = self._visit_clef(sub_attributes)
+                                            output_attributes.clef.append(clef)
+                                    
+                                    attributes_dict[attribute_id] = output_attributes
+                                    attribute_id += 1
 
-                                        for sub_attributes in sub_measure:
-                                            if sub_attributes.tag == "key":
-                                                key = self._visit_key(sub_attributes)
-                                                output_attributes.key.append(key)
-                                            elif sub_attributes.tag == "time":
-                                                timesig = self._visit_time(sub_attributes)
-                                                output_attributes.timesig.append(timesig)
-                                            elif sub_attributes.tag == "clef":
-                                                clef = self._visit_clef(sub_attributes)
-                                                output_attributes.clef.append(clef)
-                                        
-                                        attributes_dict[attribute_id] = output_attributes
-                                        attribute_id += 1
+                        # FER QUE FUNCIONI AMB MULTIPLES STAVES !!!kjhdihiwpheghjsepg
 
-                            # FER QUE FUNCIONI AMB MULTIPLES STAVES !!!kjhdihiwpheghjsepg
-
-                            if Errors.ClefChangeNoPrintError in self.error_dict[project_name][line_id][part_id]:
-                                #Passar a funcio especifica (li passo clef o timesig o key per parametre aixi puc reutilitzar)
-                                first_clefs = None
-                                for actual_attribute_id, attributes in attributes_dict.items():
-                                    if first_clefs == None:
-                                        first_clefs = attributes.clef
-                                        first_attribute_id = actual_attribute_id
-                                    else:
-                                        if attributes.clef is not None:
-                                            for first_clef in first_clefs:
-                                                if first_clef.compare_for_error1(attributes.clef): 
-                                                    self.solve_error_1(project_name, project_id, root, "clef", attributes_dict, first_attribute_id, actual_attribute_id, part_id, first_clef.staff)
-                                            break                                   
-                        part += 1
+                        if Errors.ClefChangeNoPrintError.value in self.error_dict[project_name][line_id][part_id]:
+                            #Passar a funcio especifica (li passo clef o timesig o key per parametre aixi puc reutilitzar)
+                            first_clefs = None
+                            for actual_attribute_id, attributes in attributes_dict.items():
+                                if first_clefs == None:
+                                    first_clefs = attributes.clef
+                                    first_attribute_id = actual_attribute_id
+                                else:
+                                    if attributes.clef is not None:
+                                        for first_clef in first_clefs:
+                                            if first_clef.compare_for_error1(attributes.clef): 
+                                                self.solve_error_1(project_name, project_id, line_id, root, "clef", attributes_dict, first_attribute_id, actual_attribute_id, part_id, first_clef.staff)
+                                        break    
+                        if Errors.KeyChangeNoPrintError.value in self.error_dict[project_name][line_id][part_id]:
+                            #Passar a funcio especifica (li passo clef o timesig o key per parametre aixi puc reutilitzar)
+                            first_keys = None
+                            for actual_attribute_id, attributes in attributes_dict.items():
+                                if first_keys == None:
+                                    first_keys = attributes.key
+                                    first_attribute_id = actual_attribute_id
+                                else:
+                                    if attributes.key is not None:
+                                        for first_key in first_keys:
+                                            if first_key.compare_for_error1(attributes.key): 
+                                                self.solve_error_1(project_name, project_id, line_id, root, "key", attributes_dict, first_attribute_id, actual_attribute_id, part_id, first_key.staff)
+                                        break     
+                        if Errors.TimesigChangeNoPrintError.value in self.error_dict[project_name][line_id][part_id]:
+                            #Passar a funcio especifica (li passo clef o timesig o key per parametre aixi puc reutilitzar)
+                            first_times = None
+                            for actual_attribute_id, attributes in attributes_dict.items():
+                                if first_times == None:
+                                    first_times = attributes.timesig
+                                    first_attribute_id = actual_attribute_id
+                                else:
+                                    if attributes.timesig is not None:
+                                        for first_time in first_times:
+                                            if first_time.compare_for_error1(attributes.timesig): 
+                                                self.solve_error_1(project_name, project_id, line_id, root, "timesig", attributes_dict, first_attribute_id, actual_attribute_id, part_id, first_time.staff)
+                                        break                              
+                    part += 1
                 
                     
-    def solve_error_1(self, project_name: str, project_id: int, root: ET.ElementTree, element: str, attributes_dict, first_attribute_id: int, second_attribute_id: int, part_id: int, staff: int) -> None:
+    def solve_error_1(self, project_name: str, project_id: int, line_id: int, root: ET.ElementTree, element: str, attributes_dict, first_attribute_id: int, second_attribute_id: int, part_id: int, staff: int) -> None:
         """
         first_attribute_id -> Primer attribute on surt l'element indicat a la variable element (clef, key o timesig)
         actual_attribute_id -> Segon attribute on surt l'element indicat a la variable element (clef, key o timesig)
@@ -323,13 +360,23 @@ class ParserMXML():
                                         for clef in sub_measure.findall("clef"):
                                             staff_element = int(clef.get("number", "1"))
                                             if staff_element == staff:        
-                                                if clef.get("print-object") == "no":
+                                                if clef.get("print-object", "yes") == "no":
                                                     clef.set("print-object", "yes")
                                                     break
                                     elif element == "key":
-                                        for clef in sub_measure.findall("clef"):
-                                            if clef.get("print-object") == "no":
-                                                clef.set("print-object", "yes")
+                                        for key in sub_measure.findall("key"):
+                                            staff_element = int(key.get("number", "-1"))
+                                            if staff_element == staff:        
+                                                if key.get("print-object", "yes") == "no":
+                                                    key.set("print-object", "yes")
+                                                    break
+                                    elif element == "timesig":
+                                        for time in sub_measure.findall("time"):
+                                            staff_element = int(time.get("number", "-1"))
+                                            if staff_element == staff:        
+                                                if time.get("print-object", "yes") == "no":
+                                                    time.set("print-object", "yes")
+                                                    break
 
                                 elif second_attribute_id == attribute_id:
                                     # HEM DE POSAR print_object = no
@@ -337,8 +384,22 @@ class ParserMXML():
                                         for clef in sub_measure.findall("clef"):
                                             staff_element = int(clef.get("number", "1"))
                                             if staff_element == staff:   
-                                                if clef.get("print-object") == "yes":
+                                                if clef.get("print-object", "yes") == "yes":
                                                     clef.set("print-object", "no")
+                                                    break
+                                    elif element == "key":
+                                        for key in sub_measure.findall("key"):
+                                            staff_element = int(key.get("number", "-1"))
+                                            if staff_element == staff:   
+                                                if key.get("print-object", "yes") == "yes":
+                                                    key.set("print-object", "no")
+                                                    break
+                                    elif element == "timesig":
+                                        for time in sub_measure.findall("time"):
+                                            staff_element = int(time.get("number", "-1"))
+                                            if staff_element == staff:   
+                                                if time.get("print-object", "yes") == "yes":
+                                                    time.set("print-object", "no")
                                                     break
                                 attribute_id += 1
                 part += 1
@@ -347,15 +408,13 @@ class ParserMXML():
 
         # QUAN FAGI SEGON CLEF/KEY/TIMESIG FER BREAK TOTAL FINS AQUI
 
-        fixed_path = os.path.join(self.fixed_dir, f"{project_id}.musicxml")
+        fixed_path = os.path.join(self.fixed_dir_1, f"{project_id}_{line_id}.musicxml")
         tree = ET.ElementTree(root)
         tree.write(fixed_path, encoding="utf-8", xml_declaration=True)
-
-        
-
+    
 
     
-    def check_and_solve_error_2(self, project_name: str, project_id: int) -> bool:
+    def check_error_2(self, project_name: str, project_id: int) -> bool:
         if project_name not in self.error_dict:
             return False
         
@@ -364,11 +423,94 @@ class ParserMXML():
         sorted_keys = sorted(int(k) for k in errors.keys())
 
         # Store consecutive pairs (k, k+1)
-        consecutive_pairs = []
+        consecutive_pairs = {}
         for i in range(len(sorted_keys) - 1):
             if sorted_keys[i + 1] == sorted_keys[i] + 1:
-                pair = (str(sorted_keys[i]), str(sorted_keys[i + 1]))
-                consecutive_pairs.append(pair)
+                
+                for part_id in errors[sorted_keys[i]].keys():
+                    if part_id in errors[sorted_keys[i + 1]]:
+                        errors_line_1 = errors[sorted_keys[i]][part_id]
+                        errors_line_2 = errors[sorted_keys[i+1]][part_id]
+                        pair = (str(sorted_keys[i]), str(sorted_keys[i + 1]))
+
+                        if (Errors.ClefChangeNoPrintError in errors_line_1 and Errors.ClefChangeNoPrintError in errors_line_2):
+                            if pair not in consecutive_pairs.keys():
+                                consecutive_pairs[pair] = {}
+                            if part_id not in consecutive_pairs[pair].keys():
+                                consecutive_pairs[pair][part_id] = [Errors.ClefChangeNoPrintError]
+                            else:
+                                consecutive_pairs[pair][part_id].append(Errors.ClefChangeNoPrintError)
+
+                        if (Errors.KeyChangeNoPrintError in errors_line_1 and Errors.KeyChangeNoPrintError in errors_line_2):
+                            if pair not in consecutive_pairs.keys():
+                                consecutive_pairs[pair] = {}
+                            if part_id not in consecutive_pairs[pair].keys():
+                                consecutive_pairs[pair][part_id] = [Errors.KeyChangeNoPrintError]
+                            else:
+                                consecutive_pairs[pair][part_id].append(Errors.KeyChangeNoPrintError)
+
+                        if (Errors.TimesigChangeNoPrintError in errors_line_1 and Errors.TimesigChangeNoPrintError in errors_line_2):
+                            if pair not in consecutive_pairs.keys():
+                                consecutive_pairs[pair] = {}
+                            if part_id not in consecutive_pairs[pair].keys():
+                                consecutive_pairs[pair][part_id] = [Errors.TimesigChangeNoPrintError]
+                            else:
+                                consecutive_pairs[pair][part_id].append(Errors.TimesigChangeNoPrintError)
+
+        # MIRAR ALS STATES SI ES COMPLEIX QUE ULTIM I PRIMER
+        for pair in consecutive_pairs.keys():
+            if pair[0] > 1:
+                for part_id, error in consecutive_pairs[pair].items():
+                    # Al accedir a states s'ha de fer part i line(pair) -1 perque l'index comença per 0
+                    last_attr_line_before = self.states[part_id-1][pair[0]-2].current_attributes
+                    initial_attr_line_faulty = self.states[part_id-1][pair[0]-1].initial_attributes
+                    last_attr_line_faulty = self.states[part_id-1][pair[0]-1].current_attributes
+                    initial_attr_line_after = self.states[part_id-1][pair[1]-1].initial_attributes
+
+                    if Errors.ClefChangeNoPrintError in consecutive_pairs[pair][part_id]:
+                        for before_clef in last_attr_line_before.clef:
+                            if before_clef.compare_for_error2(initial_attr_line_faulty.clef, last_attr_line_faulty.clef, initial_attr_line_after.clef):
+                                self.solve_error_2(project_name, project_id, pair[0], "clef", part_id, before_clef)
+
+
+    def solve_error_2(self, project_name: str, project_id: int, line_id: int, element: str, part_id: int, last_object: object) -> None:
+        """
+        first_attribute_id -> Primer attribute on surt l'element indicat a la variable element (clef, key o timesig)
+        actual_attribute_id -> Segon attribute on surt l'element indicat a la variable element (clef, key o timesig)
+        """
+        # POSAR CLEF DE LA LINIA ANTERIOR A TOTS ELS ATRIBUTS DE LA LINIA ACTUAL
+        musicxml_bytes = self._fetch_musicxml(project_id, line_id)
+        root = ET.ElementTree(ET.fromstring(musicxml_bytes)).getroot()
+
+        part = 1
+        for sub_root in root:
+            if sub_root.tag == "part":
+                if part_id == part:
+                    for measure in sub_root:
+                        for sub_measure in measure:
+                            if sub_measure.tag == "attributes":
+                                
+                                # LI HEM DE POSAR print_object = yes
+                                if element == "clef":
+                                    for clef in sub_measure.findall("clef"):
+                                        staff_element = int(clef.get("number", "1"))
+                                        if staff_element == last_object.staff:
+                                            sign_element = clef.find("sign")
+                                            sign_element.text = last_object.sign
+                                            break
+                                elif element == "key":
+                                    for clef in sub_measure.findall("clef"):
+                                        if clef.get("print-object") == "no":
+                                            clef.set("print-object", "yes")
+
+                part += 1
+        
+
+
+        fixed_path = os.path.join(self.fixed_dir_2, f"{project_id}_{line_id}.musicxml")
+        tree = ET.ElementTree(root)
+        tree.write(fixed_path, encoding="utf-8", xml_declaration=True)
+
 
 
     def save_error_to_dict(self, score: str, line_id: str, part: int, error: Errors) -> None:

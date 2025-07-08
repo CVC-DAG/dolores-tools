@@ -132,7 +132,43 @@ class Clef:
         if self.sign == other.sign and self.octave_change == other.octave_change \
             and not self.print_object and other.print_object:
             return True
-        return True
+        return False
+    
+    def compare_for_error2(self, initial_faulty_clefs: list[object], current_faulty_clefs: list[object], initial_after_clefs: list[object]) -> bool:
+
+        initial_faulty = None
+        for clef in initial_faulty_clefs:
+            if clef.staff == self.staff or clef.staff == -1 or self.staff == -1:
+                initial_faulty = clef
+                break
+        if initial_faulty == None:
+            return None
+        
+        current_faulty = None
+        for clef in current_faulty_clefs:
+            if clef.staff == initial_faulty.staff or clef.staff == -1 or initial_faulty.staff == -1:
+                current_faulty = clef
+                break
+        if current_faulty == None:
+            return None
+        
+        initial_after = None
+        for clef in initial_after_clefs:
+            if clef.staff == initial_after.staff or clef.staff == -1 or initial_after.staff == -1:
+                initial_after = clef
+                break
+        if initial_after == None:
+            return None
+        
+        # Comprovem que la ultima clef de la linia anterior sigui igual a la primera clef de la linia seguent
+        # i que la primera i ultima clef de la linia actual siguin iguals
+        # (Ja sabem que les clefs de la linia anterior i posterior son diferents a les de la linia actual)
+        
+        if (self.sign == initial_after.sign and self.octave_change == initial_after.octave_change) \
+            and (initial_faulty.sign == current_faulty.sign and initial_faulty.octave_change == current_faulty.octave_change):
+            return True
+        return False
+
 
 class TimeSig:
     def __init__(
@@ -176,6 +212,20 @@ class TimeSig:
         if self.time_value != other.time_value or self.staff != other.staff:
             return Errors.TimesigChangeNoPrintError
         return None
+    
+    def compare_for_error1(self, other_times: list[object]) -> bool:
+
+        other = None
+        for time in other_times:
+            if time.staff == self.staff or time.staff == -1 or self.staff == -1:
+                other = time
+                break
+        if other == None:
+            return None
+
+        if self.time_value == other.time_value or self.staff == other.staff:
+            return True
+        return False
     
 
 class Key:
@@ -251,6 +301,41 @@ class Key:
         if self_steps != other_steps or self_values != other_values:
             return Errors.KeyChangeNoPrintError
         return None
+    
+    def compare_for_error1(self, other_keys: list[object]) -> bool:
+
+        #Treiem zeros (naturals) de les alterations (self)
+        filtered = [(step, val) for step, val in zip(self.alter_steps, self.alter_value) if val != 0]
+        if filtered:
+            self_steps, self_values = zip(*filtered)
+            self_steps = list(self_steps)
+            self_values = list(self_values)
+        else:
+            self_steps, self_values = [], []
+
+        #Comparem amb other del mateix staff
+        other = None
+        for key in other_keys:
+            if key.staff == self.staff or key.staff == -1 or self.staff == -1:
+                other = key
+                break
+        if other == None:
+            return None
+
+        #Treiem zeros (naturals) de les alterations (other)
+        filtered_other = [(step, val) for step, val in zip(other.alter_steps, other.alter_value) if val != 0]
+        if filtered_other:
+            other_steps, other_values = zip(*filtered_other)
+            other_steps = list(other_steps)
+            other_values = list(other_values)
+        else:
+            other_steps, other_values = [], []
+
+        if self_steps == other_steps or self_values == other_values \
+            and not self.print_object and other.print_object:
+            return True
+        return False
+
         
 
     def convert_key_alter_to_fifths(self, previous_fifths: int = None) -> bool:
