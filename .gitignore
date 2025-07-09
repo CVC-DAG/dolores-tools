@@ -5,3 +5,7 @@
 *.pyc
 .idea/
 .jupyter/
+test_data/
+faulty_files.json
+output_data/
+cutting_tools/config.py
