@@ -154,7 +154,7 @@ class Clef:
         
         initial_after = None
         for clef in initial_after_clefs:
-            if clef.staff == initial_after.staff or clef.staff == -1 or initial_after.staff == -1:
+            if clef.staff == current_faulty.staff or clef.staff == -1 or current_faulty.staff == -1:
                 initial_after = clef
                 break
         if initial_after == None:
@@ -165,7 +165,8 @@ class Clef:
         # (Ja sabem que les clefs de la linia anterior i posterior son diferents a les de la linia actual)
         
         if (self.sign == initial_after.sign and self.octave_change == initial_after.octave_change) \
-            and (initial_faulty.sign == current_faulty.sign and initial_faulty.octave_change == current_faulty.octave_change):
+            and (initial_faulty.sign == current_faulty.sign and initial_faulty.octave_change == current_faulty.octave_change) \
+            and (not initial_faulty.print_object and not current_faulty.print_object):
             return True
         return False
 
@@ -227,6 +228,43 @@ class TimeSig:
             return True
         return False
     
+    def compare_for_error2(self, initial_faulty_times: list[object], current_faulty_times: list[object], initial_after_times: list[object]) -> bool:
+
+        initial_faulty = None
+        for time in initial_faulty_times:
+            if time.staff == self.staff or time.staff == -1 or self.staff == -1:
+                initial_faulty = time
+                break
+        if initial_faulty == None:
+            return None
+        
+        current_faulty = None
+        for time in current_faulty_times:
+            if time.staff == initial_faulty.staff or time.staff == -1 or initial_faulty.staff == -1:
+                current_faulty = time
+                break
+        if current_faulty == None:
+            return None
+        
+        initial_after = None
+        for time in initial_after_times:
+            if time.staff == current_faulty.staff or time.staff == -1 or current_faulty.staff == -1:
+                initial_after = time
+                break
+        if initial_after == None:
+            return None
+        
+        # Comprovem que l'ultim time de la linia anterior sigui igual al primer time de la linia seguent
+        # i que el primer i ultim time de la linia actual siguin iguals
+        # (Ja sabem que els times de la linia anterior i posterior son diferents als de la linia actual)
+        
+        if (self.time_value == initial_after.time_value) \
+            and (initial_faulty.time_value == current_faulty.time_value) \
+            and (not initial_faulty.print_object and not current_faulty.print_object):
+            return True
+        return False
+    
+    
 
 class Key:
     def __init__(
@@ -271,15 +309,6 @@ class Key:
 
     
     def compare(self, other_keys: object) -> Errors:
-        #Treiem zeros (naturals) de les alterations (self)
-        filtered = [(step, val) for step, val in zip(self.alter_steps, self.alter_value) if val != 0]
-        if filtered:
-            self_steps, self_values = zip(*filtered)
-            self_steps = list(self_steps)
-            self_values = list(self_values)
-        else:
-            self_steps, self_values = [], []
-
         #Comparem amb other del mateix staff
         other = None
         for key in other_keys:
@@ -288,6 +317,15 @@ class Key:
                 break
         if other == None:
             return Errors.NoKey
+        
+        #Treiem zeros (naturals) de les alterations (self)
+        filtered = [(step, val) for step, val in zip(self.alter_steps, self.alter_value) if val != 0]
+        if filtered:
+            self_steps, self_values = zip(*filtered)
+            self_steps = list(self_steps)
+            self_values = list(self_values)
+        else:
+            self_steps, self_values = [], []
 
         #Treiem zeros (naturals) de les alterations (other)
         filtered_other = [(step, val) for step, val in zip(other.alter_steps, other.alter_value) if val != 0]
@@ -303,6 +341,14 @@ class Key:
         return None
     
     def compare_for_error1(self, other_keys: list[object]) -> bool:
+        #Comparem amb other del mateix staff
+        other = None
+        for key in other_keys:
+            if key.staff == self.staff or key.staff == -1 or self.staff == -1:
+                other = key
+                break
+        if other == None:
+            return None
 
         #Treiem zeros (naturals) de les alterations (self)
         filtered = [(step, val) for step, val in zip(self.alter_steps, self.alter_value) if val != 0]
@@ -312,15 +358,6 @@ class Key:
             self_values = list(self_values)
         else:
             self_steps, self_values = [], []
-
-        #Comparem amb other del mateix staff
-        other = None
-        for key in other_keys:
-            if key.staff == self.staff or key.staff == -1 or self.staff == -1:
-                other = key
-                break
-        if other == None:
-            return None
 
         #Treiem zeros (naturals) de les alterations (other)
         filtered_other = [(step, val) for step, val in zip(other.alter_steps, other.alter_value) if val != 0]
@@ -335,6 +372,80 @@ class Key:
             and not self.print_object and other.print_object:
             return True
         return False
+    
+
+    def compare_for_error2(self, initial_faulty_keys: list[object], current_faulty_keys: list[object], initial_after_keys: list[object]) -> bool:
+        
+        initial_faulty = None
+        for key in initial_faulty_keys:
+            if key.staff == self.staff or key.staff == -1 or self.staff == -1:
+                initial_faulty = key
+                break
+        if initial_faulty == None:
+            return None
+        
+        current_faulty = None
+        for key in current_faulty_keys:
+            if key.staff == initial_faulty.staff or key.staff == -1 or initial_faulty.staff == -1:
+                current_faulty = key
+                break
+        if current_faulty == None:
+            return None
+        
+        initial_after = None
+        for key in initial_after_keys:
+            if key.staff == current_faulty.staff or key.staff == -1 or current_faulty.staff == -1:
+                initial_after = key
+                break
+        if initial_after == None:
+            return None
+        
+        #Treiem zeros (naturals) de les alterations (self)
+        filtered = [(step, val) for step, val in zip(self.alter_steps, self.alter_value) if val != 0]
+        if filtered:
+            self_steps, self_values = zip(*filtered)
+            self_steps = list(self_steps)
+            self_values = list(self_values)
+        else:
+            self_steps, self_values = [], []
+        
+        #Treiem zeros (naturals) de les alterations (initial_faulty)
+        filtered_initial_faulty = [(step, val) for step, val in zip(initial_faulty.alter_steps, initial_faulty.alter_value) if val != 0]
+        if filtered_initial_faulty:
+            initial_faulty_steps, initial_faulty_values = zip(*filtered_initial_faulty)
+            initial_faulty_steps = list(initial_faulty_steps)
+            initial_faulty_values = list(initial_faulty_values)
+        else:
+            initial_faulty_steps, initial_faulty_values = [], []
+
+        #Treiem zeros (naturals) de les alterations (current_faulty)
+        filtered_current_faulty = [(step, val) for step, val in zip(current_faulty.alter_steps, current_faulty.alter_value) if val != 0]
+        if filtered_current_faulty:
+            current_faulty_steps, current_faulty_values = zip(*filtered_current_faulty)
+            current_faulty_steps = list(current_faulty_steps)
+            current_faulty_values = list(current_faulty_values)
+        else:
+            current_faulty_steps, current_faulty_values = [], []
+
+        #Treiem zeros (naturals) de les alterations (initial_after)
+        filtered_initial_after = [(step, val) for step, val in zip(initial_after.alter_steps, initial_after.alter_value) if val != 0]
+        if filtered_initial_after:
+            initial_after_steps, initial_after_values = zip(*filtered_initial_after)
+            initial_after_steps = list(initial_after_steps)
+            initial_after_values = list(initial_after_values)
+        else:
+            initial_after_steps, initial_after_values = [], []
+
+        # Comprovem que la ultima key de la linia anterior sigui igual a la primera key de la linia seguent
+        # i que la primera i ultima key de la linia actual siguin iguals
+        # (Ja sabem que les keys de la linia anterior i posterior son diferents a les de la linia actual)
+        
+        if (self_steps == initial_after_steps and self_values == initial_after_values) \
+            and (initial_faulty_steps == current_faulty_steps and initial_faulty_values == current_faulty_values) \
+            and (not initial_faulty.print_object and not current_faulty.print_object):
+            return True
+        return False
+
 
         
 

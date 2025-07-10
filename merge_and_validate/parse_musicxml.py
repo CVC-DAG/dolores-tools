@@ -44,18 +44,26 @@ class ParserMXML():
         self.error_1 = error_1
         self.error_2 = error_2
         self.error_dict = {}
+        self.fixed_dir_1 = "./fixed_mxmls_1"
+        self.fixed_dir_2 = "./fixed_mxmls_2"
+        self.error_1_ids = []
+        self.error_2_ids = []
 
         if self.error_1:
-            self.fixed_dir_1 = "./fixed_mxmls_1"
             if os.path.exists(self.fixed_dir_1):
                 shutil.rmtree(self.fixed_dir_1)
             os.makedirs(self.fixed_dir_1)
 
         if self.error_2:
-            self.fixed_dir_2 = "./fixed_mxmls_2"
             if os.path.exists(self.fixed_dir_2):
                 shutil.rmtree(self.fixed_dir_2)
             os.makedirs(self.fixed_dir_2)
+
+        for file in os.listdir(self.fixed_dir_1):
+            self.error_1_ids.append(file.split('_')[0])
+
+        for file in os.listdir(self.fixed_dir_2):
+            self.error_2_ids.append(file.split('_')[0])
 
         #self.actual_line: int = None
 
@@ -148,8 +156,10 @@ class ParserMXML():
         for project_id, project_name in self.projects_dict.items():
             #if "XAC_ACAN_SMIAu09_195" not in project_name:
             #    continue
-            if project_id > 107:
-                break
+            if str(project_id) in self.error_1_ids:
+                continue
+            if str(project_id) in self.error_2_ids:
+                continue
             lines_info = self._fetch_lines(project_id)
             if not lines_info or "line_ids" not in lines_info:
                 continue
@@ -431,9 +441,9 @@ class ParserMXML():
                     if part_id in errors[sorted_keys[i + 1]]:
                         errors_line_1 = errors[sorted_keys[i]][part_id]
                         errors_line_2 = errors[sorted_keys[i+1]][part_id]
-                        pair = (str(sorted_keys[i]), str(sorted_keys[i + 1]))
+                        pair = (sorted_keys[i], sorted_keys[i + 1])
 
-                        if (Errors.ClefChangeNoPrintError in errors_line_1 and Errors.ClefChangeNoPrintError in errors_line_2):
+                        if (Errors.ClefChangeNoPrintError.value in errors_line_1 and Errors.ClefChangeNoPrintError.value in errors_line_2):
                             if pair not in consecutive_pairs.keys():
                                 consecutive_pairs[pair] = {}
                             if part_id not in consecutive_pairs[pair].keys():
@@ -441,7 +451,7 @@ class ParserMXML():
                             else:
                                 consecutive_pairs[pair][part_id].append(Errors.ClefChangeNoPrintError)
 
-                        if (Errors.KeyChangeNoPrintError in errors_line_1 and Errors.KeyChangeNoPrintError in errors_line_2):
+                        if (Errors.KeyChangeNoPrintError.value in errors_line_1 and Errors.KeyChangeNoPrintError.value in errors_line_2):
                             if pair not in consecutive_pairs.keys():
                                 consecutive_pairs[pair] = {}
                             if part_id not in consecutive_pairs[pair].keys():
@@ -449,7 +459,7 @@ class ParserMXML():
                             else:
                                 consecutive_pairs[pair][part_id].append(Errors.KeyChangeNoPrintError)
 
-                        if (Errors.TimesigChangeNoPrintError in errors_line_1 and Errors.TimesigChangeNoPrintError in errors_line_2):
+                        if (Errors.TimesigChangeNoPrintError.value in errors_line_1 and Errors.TimesigChangeNoPrintError.value in errors_line_2):
                             if pair not in consecutive_pairs.keys():
                                 consecutive_pairs[pair] = {}
                             if part_id not in consecutive_pairs[pair].keys():
@@ -471,6 +481,14 @@ class ParserMXML():
                         for before_clef in last_attr_line_before.clef:
                             if before_clef.compare_for_error2(initial_attr_line_faulty.clef, last_attr_line_faulty.clef, initial_attr_line_after.clef):
                                 self.solve_error_2(project_name, project_id, pair[0], "clef", part_id, before_clef)
+                    if Errors.KeyChangeNoPrintError in consecutive_pairs[pair][part_id]:
+                        for before_key in last_attr_line_before.key:
+                            if before_key.compare_for_error2(initial_attr_line_faulty.key, last_attr_line_faulty.key, initial_attr_line_after.key):
+                                self.solve_error_2(project_name, project_id, pair[0], "key", part_id, before_key)
+                    if Errors.TimesigChangeNoPrintError in consecutive_pairs[pair][part_id]:
+                        for before_time in last_attr_line_before.timesig:
+                            if before_time.compare_for_error2(initial_attr_line_faulty.timesig, last_attr_line_faulty.timesig, initial_attr_line_after.timesig):
+                                self.solve_error_2(project_name, project_id, pair[0], "timesig", part_id, before_time)
 
 
     def solve_error_2(self, project_name: str, project_id: int, line_id: int, element: str, part_id: int, last_object: object) -> None:
@@ -490,18 +508,50 @@ class ParserMXML():
                         for sub_measure in measure:
                             if sub_measure.tag == "attributes":
                                 
-                                # LI HEM DE POSAR print_object = yes
+                                # Canviem valor de clef/key/timesig de la linia actual a valor de clef/key/timesig de la linia anterior
                                 if element == "clef":
                                     for clef in sub_measure.findall("clef"):
                                         staff_element = int(clef.get("number", "1"))
                                         if staff_element == last_object.staff:
                                             sign_element = clef.find("sign")
-                                            sign_element.text = last_object.sign
-                                            break
+                                            sign_element.text = last_object.sign.value
+
                                 elif element == "key":
-                                    for clef in sub_measure.findall("clef"):
-                                        if clef.get("print-object") == "no":
-                                            clef.set("print-object", "yes")
+                                    for key in sub_measure.findall("key"):
+                                        staff_element = int(key.get("number", "-1"))
+                                        if staff_element == last_object.staff:
+                                            
+                                            #Treiem keys erronies
+                                            fifths_element = key.find("fifths")
+                                            if fifths_element is not None:
+                                                key.remove(fifths_element)
+                                            
+                                            for keystep in key.findall("key-step"):
+                                                key.remove(keystep)
+                                            for keyvalue in key.findall("key-alter"):
+                                                key.remove(keyvalue)
+
+                                            for i in range(len(last_object.alter_steps)):
+                                                key_step = ET.Element("key-step")
+                                                key_step.text = last_object.alter_steps[i].name
+                                                key.append(key_step)
+
+                                                key_value = ET.Element("key-alter")
+                                                key_value.text = str(last_object.alter_value[i])
+                                                key.append(key_value)
+                                elif element == "timesig":
+                                    for time in sub_measure.findall("time"):
+                                        staff_element = int(time.get("number", "-1"))
+                                        if staff_element == last_object.staff:
+
+                                            beats = time.find("beats")
+                                            beats.text = str(last_object.time_value[0][0])
+
+                                            beat_type = time.find("beat-type")
+                                            beat_type.text = str(last_object.time_value[1][0])
+
+                                            time.set("symbol", last_object.time_type.value)
+
 
                 part += 1
         

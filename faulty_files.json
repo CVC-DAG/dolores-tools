@@ -1,0 +1,834 @@
+{
+    "XAC_ACGAX_SEOAu458.02_014": {
+        "3": {
+            "1": [
+                "KeyChangeNoPrintError"
+            ]
+        }
+    },
+    "XAC_ACGAX_SEOAu458.03_014": {
+        "2": {
+            "1": [
+                "ClefChangeNoPrintError"
+            ]
+        },
+        "5": {
+            "1": [
+                "ClefChangeNoPrintError"
+            ]
+        }
+    },
+    "UAB_LICEU_202912.022": {
+        "2": {
+            "1": [
+                "ClefChangeNoPrintError"
+            ]
+        }
+    },
+    "XAC_ACGAX_SEOAu458.07_006": {
+        "2": {
+            "1": [
+                "ClefChangeNoPrintError"
+            ]
+        }
+    },
+    "XAC_ACGAX_SEOAu458.01_017": {
+        "3": {
+            "1": [
+                "ClefChangeNoPrintError"
+            ]
+        }
+    },
+    "XAC_ACAN_SMIAu09_057": {
+        "9": {
+            "1": [
+                "TimesigChangeNoPrintError"
+            ]
+        }
+    },
+    "XAC_ACGAX_SEOAu455.01_017": {
+        "6": {
+            "1": [
+                "KeyChangeNoPrintError"
+            ]
+        }
+    },
+    "UAB_LICEU_188255.013": {
+        "9": {
+            "1": [
+                "KeyChangeNoPrintError"
+            ]
+        }
+    },
+    "XAC_ACGAX_SEOAu458.01_012": {
+        "5": {
+            "1": [
+                "KeyChangeNoPrintError"
+            ]
+        }
+    },
+    "UAB_LICEU_188255.003": {
+        "3": {
+            "1": [
+                "ClefChangeNoPrintError"
+            ]
+        }
+    },
+    "XAC_ACGAX_SEOAu458.15_007": {
+        "3": {
+            "1": [
+                "ClefChangeNoPrintError"
+            ]
+        },
+        "5": {
+            "1": [
+                "ClefChangeNoPrintError"
+            ]
+        },
+        "9": {
+            "1": [
+                "ClefChangeNoPrintError"
+            ]
+        }
+    },
+    "UAB_LICEU_191851.012": {
+        "2": {
+            "1": [
+                "ClefChangeNoPrintError"
+            ]
+        }
+    },
+    "UAB_LICEU_202938.019": {
+        "8": {
+            "1": [
+                "KeyChangeNoPrintError"
+            ]
+        }
+    },
+    "XAC_ACAN_SMIAu83_080": {
+        "4": {
+            "1": [
+                "NoTimesig"
+            ]
+        },
+        "5": {
+            "1": [
+                "NoTimesig"
+            ]
+        }
+    },
+    "UAB_LICEU_188255.031": {
+        "5": {
+            "1": [
+                "KeyChangeNoPrintError"
+            ]
+        },
+        "7": {
+            "1": [
+                "KeyChangeNoPrintError"
+            ]
+        }
+    },
+    "UAB_LICEU_185546.054": {
+        "2": {
+            "1": [
+                "ClefChangeNoPrintError"
+            ]
+        }
+    },
+    "XAC_ACAN_SMIAu63_021": {
+        "5": {
+            "1": [
+                "ClefChangeNoPrintError"
+            ]
+        }
+    },
+    "UAB_LICEU_185546.060": {
+        "3": {
+            "1": [
+                "ClefChangeNoPrintError",
+                "KeyChangeNoPrintError"
+            ]
+        }
+    },
+    "XAC_ACGAX_SEOAu942.02_008": {
+        "6": {
+            "1": [
+                "KeyChangeNoPrintError"
+            ]
+        }
+    },
+    "XAC_ACGAX_SEOAu458.15_017": {
+        "2": {
+            "1": [
+                "ClefChangeNoPrintError"
+            ]
+        },
+        "7": {
+            "1": [
+                "ClefChangeNoPrintError"
+            ]
+        }
+    },
+    "UAB_LICEU_188255.049": {
+        "3": {
+            "1": [
+                "ClefChangeNoPrintError"
+            ]
+        },
+        "5": {
+            "1": [
+                "ClefChangeNoPrintError"
+            ]
+        }
+    },
+    "UAB_LICEU_188255.012": {
+        "3": {
+            "1": [
+                "KeyChangeNoPrintError"
+            ]
+        }
+    },
+    "XAC_ACAN_SMIAu63_107": {
+        "2": {
+            "1": [
+                "ClefChangeNoPrintError"
+            ]
+        },
+        "6": {
+            "1": [
+                "ClefChangeNoPrintError"
+            ]
+        },
+        "9": {
+            "1": [
+                "ClefChangeNoPrintError"
+            ]
+        }
+    },
+    "XAC_ACGAX_SEOAu458.05_008": {
+        "2": {
+            "1": [
+                "ClefChangeNoPrintError"
+            ]
+        },
+        "5": {
+            "1": [
+                "ClefChangeNoPrintError"
+            ]
+        }
+    },
+    "UAB_LICEU_188255.008": {
+        "2": {
+            "1": [
+                "KeyChangeNoPrintError"
+            ]
+        }
+    },
+    "XAC_ACAN_SMIAu63_114": {
+        "4": {
+            "1": [
+                "KeyChangeNoPrintError"
+            ]
+        }
+    },
+    "UAB_LICEU_202912.014": {
+        "5": {
+            "1": [
+                "KeyChangeNoPrintError"
+            ]
+        }
+    },
+    "XAC_ACAN_SMIAu09_062": {
+        "7": {
+            "1": [
+                "TimesigChangeNoPrintError"
+            ]
+        }
+    },
+    "XAC_ACGAX_SEOAu942.10_006": {
+        "3": {
+            "1": [
+                "TimesigChangeNoPrintError"
+            ]
+        }
+    },
+    "UAB_LICEU_222570.098": {
+        "7": {
+            "1": [
+                "KeyChangeNoPrintError"
+            ]
+        }
+    },
+    "UAB_LICEU_202912.009": {
+        "6": {
+            "1": [
+                "KeyChangeNoPrintError"
+            ]
+        }
+    },
+    "UAB_LICEU_188255.021": {
+        "7": {
+            "1": [
+                "KeyChangeNoPrintError"
+            ]
+        }
+    },
+    "UAB_LICEU_188255.004": {
+        "2": {
+            "1": [
+                "ClefChangeNoPrintError"
+            ]
+        }
+    },
+    "XAC_ACGAX_SEOAu458.01_018": {
+        "2": {
+            "1": [
+                "ClefChangeNoPrintError"
+            ]
+        }
+    },
+    "XAC_ACAN_SMIAu83_024": {
+        "6": {
+            "1": [
+                "ClefChangeNoPrintError"
+            ]
+        }
+    },
+    "UAB_LICEU_222570.021": {
+        "7": {
+            "1": [
+                "KeyChangeNoPrintError"
+            ]
+        }
+    },
+    "XAC_ACAN_SMIAu63_001": {
+        "2": {
+            "1": [
+                "ClefChangeNoPrintError"
+            ]
+        },
+        "4": {
+            "1": [
+                "ClefChangeNoPrintError"
+            ]
+        },
+        "6": {
+            "1": [
+                "ClefChangeNoPrintError"
+            ]
+        },
+        "9": {
+            "1": [
+                "ClefChangeNoPrintError"
+            ]
+        }
+    },
+    "UAB_LICEU_185546.050": {
+        "2": {
+            "1": [
+                "ClefChangeNoPrintError"
+            ]
+        }
+    },
+    "UAB_LICEU_188255.044": {
+        "2": {
+            "1": [
+                "ClefChangeNoPrintError"
+            ]
+        }
+    },
+    "UAB_LICEU_202912.007": {
+        "2": {
+            "1": [
+                "ClefChangeNoPrintError"
+            ]
+        }
+    },
+    "UAB_LICEU_202938.016": {
+        "10": {
+            "1": [
+                "KeyChangeNoPrintError"
+            ]
+        }
+    },
+    "UAB_LICEU_222570.007": {
+        "5": {
+            "1": [
+                "TimesigChangeNoPrintError"
+            ]
+        }
+    },
+    "XAC_ACGAX_SEOAu455.01_014": {
+        "2": {
+            "1": [
+                "KeyChangeNoPrintError"
+            ]
+        }
+    },
+    "XAC_ACGAX_SEOAu458.15_004": {
+        "9": {
+            "1": [
+                "KeyChangeNoPrintError"
+            ]
+        }
+    },
+    "1.5.1_0081.011": {
+        "2": {
+            "1": [
+                "ClefChangeNoPrintError"
+            ]
+        }
+    },
+    "XAC_ACGAX_SEOAu458.04_002": {
+        "2": {
+            "1": [
+                "ClefChangeNoPrintError"
+            ]
+        }
+    },
+    "XAC_ACAN_SMIAu83_053": {
+        "4": {
+            "1": [
+                "KeyChangeNoPrintError"
+            ]
+        }
+    },
+    "UAB_LICEU_188255.054": {
+        "2": {
+            "1": [
+                "ClefChangeNoPrintError"
+            ]
+        }
+    },
+    "XAC_ACAN_SMIAu63_085": {
+        "9": {
+            "1": [
+                "TimesigChangeNoPrintError"
+            ]
+        }
+    },
+    "XAC_ACAN_SMIAu63_022": {
+        "2": {
+            "1": [
+                "ClefChangeNoPrintError"
+            ]
+        }
+    },
+    "XAC_ACAN_SMIAu83_067": {
+        "7": {
+            "1": [
+                "ClefChangeNoPrintError"
+            ]
+        }
+    },
+    "XAC_ACAN_SMIAu63_031": {
+        "2": {
+            "1": [
+                "ClefChangeNoPrintError"
+            ]
+        },
+        "8": {
+            "1": [
+                "ClefChangeNoPrintError"
+            ]
+        }
+    },
+    "CEDOC_CMM_1.5.1_0082.005": {
+        "2": {
+            "1": [
+                "ClefChangeNoPrintError"
+            ],
+            "2": [
+                "ClefChangeNoPrintError"
+            ],
+            "3": [
+                "ClefChangeNoPrintError"
+            ],
+            "4": [
+                "ClefChangeNoPrintError"
+            ],
+            "5": [
+                "ClefChangeNoPrintError"
+            ],
+            "6": [
+                "ClefChangeNoPrintError"
+            ],
+            "7": [
+                "ClefChangeNoPrintError"
+            ]
+        }
+    },
+    "XAC_ACAN_SMIAu63_006": {
+        "5": {
+            "1": [
+                "ClefChangeNoPrintError"
+            ]
+        },
+        "10": {
+            "1": [
+                "ClefChangeNoPrintError"
+            ]
+        }
+    },
+    "UAB_LICEU_202938.011": {
+        "8": {
+            "1": [
+                "KeyChangeNoPrintError"
+            ]
+        }
+    },
+    "XAC_ACAN_SMIAu83_091": {
+        "3": {
+            "1": [
+                "KeyChangeNoPrintError"
+            ]
+        },
+        "8": {
+            "1": [
+                "KeyChangeNoPrintError"
+            ]
+        }
+    },
+    "UAB_LICEU_202912.013": {
+        "7": {
+            "1": [
+                "KeyChangeNoPrintError"
+            ]
+        }
+    },
+    "UAB_LICEU_188255.055": {
+        "4": {
+            "1": [
+                "KeyChangeNoPrintError"
+            ]
+        },
+        "6": {
+            "1": [
+                "KeyChangeNoPrintError"
+            ]
+        },
+        "8": {
+            "1": [
+                "KeyChangeNoPrintError"
+            ]
+        }
+    },
+    "XAC_ACAN_SMIAu63_069": {
+        "9": {
+            "1": [
+                "KeyChangeNoPrintError"
+            ]
+        }
+    },
+    "UAB_LICEU_188255.030": {
+        "6": {
+            "1": [
+                "KeyChangeNoPrintError"
+            ]
+        }
+    },
+    "UAB_LICEU_234343.008": {
+        "4": {
+            "1": [
+                "KeyChangeNoPrintError"
+            ]
+        }
+    },
+    "UAB_LICEU_188255.069": {
+        "2": {
+            "1": [
+                "ClefChangeNoPrintError"
+            ]
+        },
+        "5": {
+            "1": [
+                "ClefChangeNoPrintError"
+            ]
+        }
+    },
+    "XAC_ACGAX_SEOAu458.02_011": {
+        "7": {
+            "1": [
+                "KeyChangeNoPrintError"
+            ]
+        }
+    },
+    "UAB_LICEU_234343.030": {
+        "3": {
+            "1": [
+                "KeyChangeNoPrintError"
+            ]
+        },
+        "5": {
+            "1": [
+                "KeyChangeNoPrintError"
+            ]
+        }
+    },
+    "XAC_ACGAX_SEOAu942.02_009": {
+        "4": {
+            "1": [
+                "ClefChangeNoPrintError"
+            ]
+        }
+    },
+    "UAB_LICEU_222570.004": {
+        "4": {
+            "1": [
+                "KeyChangeNoPrintError"
+            ]
+        }
+    },
+    "XAC_ACAN_SMIAu09_089": {
+        "9": {
+            "1": [
+                "KeyChangeNoPrintError"
+            ]
+        }
+    },
+    "XAC_ACAN_SMIAu63_104": {
+        "9": {
+            "1": [
+                "KeyChangeNoPrintError"
+            ]
+        }
+    },
+    "XAC_ACGAX_SEOAu458.08_005": {
+        "3": {
+            "1": [
+                "ClefChangeNoPrintError"
+            ]
+        }
+    },
+    "XAC_ACUR_TagFAu127_015": {
+        "2": {
+            "1": [
+                "ClefChangeNoPrintError"
+            ]
+        }
+    },
+    "XAC_ACGAX_SEOAu458.05_006": {
+        "6": {
+            "1": [
+                "KeyChangeNoPrintError"
+            ]
+        }
+    },
+    "UAB_LICEU_222570.025": {
+        "7": {
+            "1": [
+                "KeyChangeNoPrintError"
+            ]
+        }
+    },
+    "XAC_ACAN_SMIAu63_013": {
+        "6": {
+            "1": [
+                "KeyChangeNoPrintError"
+            ]
+        }
+    },
+    "XAC_ACGAX_SEOAu458.01_010": {
+        "2": {
+            "1": [
+                "ClefChangeNoPrintError"
+            ]
+        }
+    },
+    "XAC_ACGAX_SEOAu458.05_002": {
+        "2": {
+            "1": [
+                "TimesigChangeNoPrintError"
+            ]
+        }
+    },
+    "XAC_ACGAX_SEOAu458.04_015": {
+        "3": {
+            "1": [
+                "ClefChangeNoPrintError"
+            ]
+        }
+    },
+    "XAC_ACGAX_SEOAu942.02_015": {
+        "2": {
+            "1": [
+                "NoClef"
+            ]
+        }
+    },
+    "XAC_ACAN_SMIAu83_063": {
+        "7": {
+            "1": [
+                "ClefChangeNoPrintError"
+            ]
+        },
+        "13": {
+            "1": [
+                "ClefChangeNoPrintError"
+            ]
+        }
+    },
+    "XAC_ACGAX_SEOAu458.11_002": {
+        "8": {
+            "1": [
+                "TimesigChangeNoPrintError"
+            ]
+        }
+    },
+    "CEDOC_CMM_1.5.1_0082.021": {
+        "2": {
+            "1": [
+                "ClefChangeNoPrintError"
+            ],
+            "2": [
+                "ClefChangeNoPrintError"
+            ],
+            "3": [
+                "ClefChangeNoPrintError"
+            ],
+            "4": [
+                "ClefChangeNoPrintError"
+            ],
+            "5": [
+                "ClefChangeNoPrintError"
+            ],
+            "6": [
+                "ClefChangeNoPrintError"
+            ],
+            "7": [
+                "ClefChangeNoPrintError"
+            ]
+        }
+    },
+    "UAB_LICEU_202938.021": {
+        "2": {
+            "1": [
+                "ClefChangeNoPrintError"
+            ]
+        }
+    },
+    "UAB_LICEU_222570.005": {
+        "2": {
+            "1": [
+                "KeyChangeNoPrintError"
+            ]
+        },
+        "4": {
+            "1": [
+                "KeyChangeNoPrintError"
+            ]
+        },
+        "8": {
+            "1": [
+                "KeyChangeNoPrintError"
+            ]
+        }
+    },
+    "XAC_ACGAX_SEOAu942.02_017": {
+        "5": {
+            "1": [
+                "ClefChangeNoPrintError"
+            ]
+        },
+        "8": {
+            "1": [
+                "ClefChangeNoPrintError"
+            ]
+        }
+    },
+    "UAB_LICEU_222570.113": {
+        "2": {
+            "1": [
+                "ClefChangeNoPrintError"
+            ]
+        },
+        "5": {
+            "1": [
+                "ClefChangeNoPrintError"
+            ]
+        }
+    },
+    "XAC_ACAN_SMIAu63_059": {
+        "6": {
+            "1": [
+                "TimesigChangeNoPrintError"
+            ]
+        }
+    },
+    "XAC_ACGAX_SEOAu942.02_004": {
+        "6": {
+            "1": [
+                "NoClef"
+            ]
+        }
+    },
+    "XAC_ACGAX_SEOAu458.04_017": {
+        "6": {
+            "1": [
+                "TimesigChangeNoPrintError"
+            ]
+        }
+    },
+    "XAC_ACAN_SMIAu83_026": {
+        "6": {
+            "1": [
+                "KeyChangeNoPrintError"
+            ]
+        }
+    },
+    "XAC_ACAN_SMIAu83_076": {
+        "2": {
+            "1": [
+                "ClefChangeNoPrintError"
+            ]
+        }
+    },
+    "UAB_LICEU_188255.051": {
+        "6": {
+            "1": [
+                "KeyChangeNoPrintError"
+            ]
+        }
+    },
+    "XAC_ACGAX_SEOAu458.01_002": {
+        "2": {
+            "1": [
+                "ClefChangeNoPrintError"
+            ]
+        }
+    },
+    "XAC_ACGAX_SEOAu458.02_002": {
+        "2": {
+            "1": [
+                "ClefChangeNoPrintError"
+            ]
+        }
+    },
+    "UAB_LICEU_185546.048": {
+        "2": {
+            "1": [
+                "KeyChangeNoPrintError"
+            ]
+        }
+    },
+    "XAC_ACAN_SMIAu63_011": {
+        "6": {
+            "1": [
+                "ClefChangeNoPrintError"
+            ]
+        }
+    },
+    "UAB_LICEU_188255.048": {
+        "6": {
+            "1": [
+                "KeyChangeNoPrintError"
+            ]
+        },
+        "9": {
+            "1": [
+                "KeyChangeNoPrintError"
+            ]
+        }
+    }
+}
