@@ -3,9 +3,12 @@
 *.sublime-workspace
 
 *.pyc
+
+fixed_mxmls_1/
+fixed_mxmls_2/
+cutting_tools/config.py
+merge_and_validate/config.py
 .idea/
 .jupyter/
 test_data/
-faulty_files.json
 output_data/
-cutting_tools/config.py

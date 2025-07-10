@@ -1,3 +1,6 @@
+from . import types as TT
+from .symbols import Clef, TimeSig, Key
+
 from mxml.musicxml import (
     AboveBelow,
     Accidental,
