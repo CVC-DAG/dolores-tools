@@ -4,9 +4,11 @@
 
 *.pyc
 
-test_data/
 fixed_mxmls_1/
 fixed_mxmls_2/
-output_data/
 cutting_tools/config.py
 merge_and_validate/config.py
+.idea/
+.jupyter/
+test_data/
+output_data/
