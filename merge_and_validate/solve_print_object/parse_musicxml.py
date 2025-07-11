@@ -4,15 +4,18 @@ from typing import Dict, List, Optional, Tuple, cast
 from xml.etree import ElementTree as ET
 import json
 import requests
+import sys
+from pathlib import Path
+sys.path.append(str(Path(__file__).resolve().parent.parent.parent))
 
 #from mxml import symbol_table as ST
-from mxml import state as MST
-from mxml import musicxml as MXML
-from mxml.symbols import Clef, TimeSig, Key, Errors
-from mxml import types as TT
+from merge_and_validate.mxml import state as MST
+from merge_and_validate.mxml import musicxml as MXML
+from merge_and_validate.mxml.symbols import Clef, TimeSig, Key, Errors
+from merge_and_validate.mxml import types as TT
 MeasureID = Tuple[str, str]
 
-from config import username, password, backend_url
+from merge_and_validate.solve_print_object.config import username, password, backend_url
 import shutil
 
 
