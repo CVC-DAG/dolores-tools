@@ -8,6 +8,7 @@ fixed_mxmls_1/
 fixed_mxmls_2/
 cutting_tools/config.py
 merge_and_validate/solve_print_object/config.py
+merge_and_validate/solve_stem_ids/matching_id_files.json
 .idea/
 .jupyter/
 test_data/
