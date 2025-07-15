@@ -26,6 +26,9 @@ def main(args: Namespace) -> None:
     if args.list_affected_jsons:
         id_solver.identify_affected_jsons()
 
+    if args.solve_categories:
+        id_solver.solve_categories()
+
 
 
 def setup() -> Namespace:
@@ -33,7 +36,8 @@ def setup() -> Namespace:
     
     parser.add_argument('categories_to_check', nargs='+', type=str, help='A list of strings containing the categories to check (stem, flag, ...)')
     parser.add_argument('--list_affected_jsons', action='store_true', help='Creates a json file with a list of the affected alignment files (jsons)')
-    
+    parser.add_argument('--solve_categories', action='store_true', help='Fixes the json files of the specified categories.')
+
     return parser.parse_args()
 
 
