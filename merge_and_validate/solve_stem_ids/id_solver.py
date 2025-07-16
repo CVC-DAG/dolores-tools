@@ -59,8 +59,6 @@ class IdSolver():
 
                 self.identify_affected_jsons()
 
-        
-        
 
         ns = {"svg": "http://www.w3.org/2000/svg"}
         ET.register_namespace('', ns["svg"])
@@ -131,8 +129,9 @@ class IdSolver():
     
     def solve_categories(self) -> None:
         if 'stem' in self.categories_to_check:
+            self.solve_stem_flag_chord_ids_svg()
             self.solve_stem_and_flag_ids_json()
-            self.solve_stem_and_flag_ids_svg()
+            
 
     def solve_stem_and_flag_ids_json(self) -> None:
         id = 0
@@ -214,13 +213,22 @@ class IdSolver():
                             if line_number in file.split('.')[-2]:
                                 svg_file = file
                                 break
-                        svg_notehead_id = notehead_object_id.split(':')[-1]
+                        svg_notehead_id = closest_notehead_id.split(':')[-1]
+                        svg_note_id = svg_notehead_id.split('.')[0]
                         tree = ET.parse(os.path.join(self.svg_input_folder, svg_file))
                         root = tree.getroot()
-                        is_chord = self.is_chord(root, svg_notehead_id)
+                        is_chord = self.is_chord(root, svg_note_id)
 
                         if is_chord:
-                            print("CHORDDD WTFFFFFFFFFFFFFFFFFFF")
+                            print("CHORDDD WTFFFFFFFFFFFFFFFFFFF json")
+                            #Buscar la mateixa note al fixed svg, agafar el id del stem germa i ficarlo com a id al json 
+                            tree = ET.parse(os.path.join(self.svg_output_folder, svg_file))
+                            root = tree.getroot()
+                            correct_stem_id = self.get_brother_stem_id(root, svg_note_id)
+                            if correct_stem_id is not None:
+                                whole_stem_id = line + ":" + correct_stem_id
+                                fixed_stem_ids[stem_object_id] = whole_stem_id
+                                fixed_flag_ids[stem_object_id + ".flag"] = whole_stem_id + ".flag"
                         else:
                             # Construir stem id correcte
                             correct_stem_id = closest_notehead_id.removesuffix("notehead") + "stem"
@@ -238,10 +246,10 @@ class IdSolver():
                     json.dump(data, out_f, indent=4)
 
 
-    def is_chord(self, svg_root: ET.Element, notehead_id: str) -> bool:
+    def is_chord(self, svg_root: ET.Element, note_id: str) -> bool:
         # Traverse the SVG tree to find the element with the given id
         for elem in svg_root.iter():
-            if elem.attrib.get("id") == notehead_id:
+            if elem.attrib.get("id") == note_id:
                 parent_map = {c: p for p in svg_root.iter() for c in p}
                 parent = parent_map.get(elem)
                 if parent is not None and parent.attrib.get("class") == "chord":
@@ -249,31 +257,59 @@ class IdSolver():
                 else:
                     return False
         return False
+    
+    def get_brother_stem_id(self, svg_root: ET.Element, note_id: str) -> str:
+        for elem in svg_root.iter():
+            if elem.attrib.get("id") == note_id:
+                parent_map = {c: p for p in svg_root.iter() for c in p}
+                parent = parent_map.get(elem)
+                if parent is not None:
+                    for sibling in parent:
+                        if sibling.attrib.get("class") == "stem":
+                            return sibling.attrib.get("id")
+                return None
 
 
-    def solve_stem_and_flag_ids_svg(self) -> None:
+
+    def solve_stem_flag_chord_ids_svg(self) -> None:
         id = 0
         for json_file in self.files.keys():
             id += 1
             if id > 10:
                 break
             for svg_file in self.files[json_file].keys():
+                print("ARREGLANT: ", svg_file)
                 tree = ET.parse(os.path.join(self.svg_input_folder, svg_file))
                 root = tree.getroot()
                 # Build a parent map for quick parent lookup
                 parent_map = {c: p for p in root.iter() for c in p}
 
+                # Fix chords
+                for elem in root.iter():
+                    if elem.attrib.get("class") == "chord" and "chord" not in elem.attrib["id"]:
+                        print("CHORDDD WTFFFFFFFFFFFFFFFFFFF svg")
+                        new_id = "chord."
+                        for child in elem:
+                            if child.attrib.get("class") == "note":
+                                if new_id == "chord.":
+                                    new_id += child.attrib["id"]
+                                else:
+                                    new_id = new_id + "_" + child.attrib["id"]
+                        if new_id != "chord.":
+                            elem.attrib["id"] = new_id
+
+
                 for elem in root.iter():
                     if elem.attrib.get("class") == "stem" and "stem" not in elem.attrib["id"]:
                         parent = parent_map.get(elem)
                         # Si no es chord
-                        if parent is not None and parent.attrib.get("class") == "note":
-                            note_id = parent.attrib.get("id")
-                            if note_id:
-                                elem.attrib["id"] = f"{note_id}.stem"
+                        if parent is not None and (parent.attrib.get("class") == "note" or parent.attrib.get("class") == "chord"):
+                            parent_id = parent.attrib.get("id")
+                            if parent_id:
+                                elem.attrib["id"] = f"{parent_id}.stem"
                                 for child in elem:
                                     if child.attrib.get("class") == "flag" and "stem" not in child.attrib.get("id"):
-                                        child.attrib["id"] = f"{note_id}.stem.flag"
+                                        child.attrib["id"] = f"{parent_id}.stem.flag"
 
                 # Write the modified SVG to the output folder
                 output_svg_path = os.path.join(self.svg_output_folder, svg_file)
