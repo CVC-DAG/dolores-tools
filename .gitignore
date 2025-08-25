@@ -12,6 +12,7 @@ merge_and_validate/solve_stem_ids/matching_id_files.json
 merge_and_validate/solve_stem_ids/fixed_jsons/
 merge_and_validate/solve_stem_ids/fixed_jsons_abans/
 merge_and_validate/solve_stem_ids/fixed_svgs/
+merge_and_validate/solve_stem_ids/fixed_jsons_ultim/
 .idea/
 .jupyter/
 test_data/

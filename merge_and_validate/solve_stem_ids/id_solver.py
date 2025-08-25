@@ -3,6 +3,8 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple, cast
 from xml.etree import ElementTree as ET
 import json
+import copy
+from collections import defaultdict
 
 import sys
 from pathlib import Path
@@ -137,8 +139,10 @@ class IdSolver():
         id = 0
         for json_file in self.files.keys():
             id += 1
-            '''if id > 10:
-                break'''
+            '''if id < 21:
+                continue'''
+            '''if "XAC_ACAN_SMIAu63_082_" not in json_file:
+                continue'''
             #Convert self.categories_to_check to their respective category_id
             #Parse elements with these category ids to check if atleast there's one that doesnt contain the category name
             print("ARREGLANT: ", json_file)
@@ -146,6 +150,7 @@ class IdSolver():
             faulty_stem_objects = {}
             all_noteheads = {}
             stem_ids = []
+            already_correct_stems = {}
             stem_ids.append(28)
 
             with open(json_path, "r") as f:
@@ -167,21 +172,36 @@ class IdSolver():
                             if line_id not in faulty_stem_objects.keys():
                                 faulty_stem_objects[line_id] = {}
                             faulty_stem_objects[line_id][element["id"]] = element["bbox"]
+                        else:
+                            line_id = element["id"].split(':')[0]
+                            if line_id not in already_correct_stems.keys():
+                                already_correct_stems[line_id] = []
+                            already_correct_stems[line_id].append(element["id"].split(':')[1].removesuffix(".stem"))
+
  
                     if element["categoryId"] == notehead_id:
                         line_id = element["id"].split(':')[0]
                         if line_id not in all_noteheads.keys():
                             all_noteheads[line_id] = {}
-                        all_noteheads[line_id][element["id"]] = element["bbox"]
+                        all_noteheads[line_id][element["id"].split(':')[-1]] = element["bbox"]
 
                 fixed_stem_ids = {}
                 fixed_flag_ids = {}
 
                 # For each stem, find which notehead is closer by bbox and create fixed id
                 for line in faulty_stem_objects.keys():
+                    #print(line)
 
                     # Agafem svg file corresponent a la linia que ens interessa
                     line_number = line.removeprefix("line").zfill(2)
+                    if line_number == "00":
+                        n_lines_svg = sum(1 for f in os.listdir(self.svg_output_folder) if json_file.removesuffix("_final.json") in f)
+                        if n_lines_svg > 1:
+                            print("linies amb valor 00000000000000000000000000000 wtfffffffff")
+                            continue
+                        else:
+                            line_number = "01"
+
                     for file in self.files[json_file].keys():
                         if line_number in file.split('.')[-2]:
                             svg_file = file
@@ -190,9 +210,38 @@ class IdSolver():
                     tree = ET.parse(os.path.join(self.svg_output_folder, svg_file))
                     svg_output_root = tree.getroot()
 
-                    tree = ET.parse(os.path.join(self.svg_input_folder, svg_file))
-                    svg_input_root = tree.getroot()
+                    stem_parent_dict = self.get_available_stem_parents_dict(svg_output_root, line)
+                    
+                    # Trec parents que ja tinguin el stem correcte
+                    if line in already_correct_stems.keys():
+                        for correct_parent in already_correct_stems[line]:
+                            if correct_parent in stem_parent_dict.keys():
+                                del stem_parent_dict[correct_parent]
+                    
+                    stem_parent_to_noteheads_dict, stem_parent_dict = self.get_stem_parent_to_noteheads_dict(svg_output_root, stem_parent_dict)
+                    
+                    available_noteheads = [nh for noteheads in stem_parent_to_noteheads_dict.values() for nh in noteheads]
+                    notehead_bboxes = {k: v for k, v in all_noteheads[line].items() if k in available_noteheads}
+                    
+                    # Cas en el que una notehead esta al svg pero no al json
+                    missing_noteheads = [nh for nh in available_noteheads if nh not in notehead_bboxes]
+                    if missing_noteheads:   
+                        #Treure noteheads d'available noteheads
+                        available_noteheads = [x for x in available_noteheads if x not in missing_noteheads]
+                        #Treure noteheads de stem_parent_to_notehead
+                        for parent in stem_parent_to_noteheads_dict:
+                            stem_parent_to_noteheads_dict[parent] = [nh for nh in stem_parent_to_noteheads_dict[parent] if nh not in missing_noteheads]
+                        #Treure parents buits a stem_parent_to_notehead de stem_parent_to_notehead i stem_parent dict
+                        for parent in list(stem_parent_to_noteheads_dict.keys()):
+                            if not stem_parent_to_noteheads_dict[parent]:  # empty list
+                                del stem_parent_to_noteheads_dict[parent]
+                                del stem_parent_dict[parent]
 
+                    all_distances_dict = {}
+                    for parent in stem_parent_dict.keys():
+                        all_distances_dict[parent] = {}
+                    
+                    # Creem una matriu (feta de diccionaris) de distancies entre stems i objectes pare
                     for stem_object_id, stem_object_bbox in faulty_stem_objects[line].items():
                         # Get corners of stem bbox
                         stem_left, stem_top, width, height = stem_object_bbox
@@ -203,10 +252,9 @@ class IdSolver():
                             (stem_left + width, stem_top + height)
                         ]
 
-                        min_dist = float('inf')
-                        closest_notehead_id = None
+                        for notehead_object_id, notehead_object_bbox in notehead_bboxes.items():
+                            min_dist = float('inf')
 
-                        for notehead_object_id, notehead_object_bbox in all_noteheads[line].items():
                             note_left, note_top, width, height = notehead_object_bbox
                             note_corners = [
                                 (note_left, note_top),
@@ -225,40 +273,38 @@ class IdSolver():
                                         dist = dist - 10
                                     if dist < min_dist:
                                         min_dist = dist
-                                        closest_notehead_id = notehead_object_id
+                            
+                            stem_parent = next(k for k, v in stem_parent_to_noteheads_dict.items() if notehead_object_id in v)
+                            if stem_object_id in all_distances_dict[stem_parent].keys():
+                                if min_dist < all_distances_dict[stem_parent][stem_object_id]:
+                                    all_distances_dict[stem_parent][stem_object_id] = min_dist
+                            else:
+                                all_distances_dict[stem_parent][stem_object_id] = min_dist
+                    x = 1
+                    # Assignem stem amb minima distancia a cada objecte pare, resolent duplicats
+                    result = self.final_stem_assigning(all_distances_dict)
 
-                        # Check if the notehead is part of a chord
-                        svg_notehead_id = closest_notehead_id.split(':')[-1]
-                        svg_note_id = svg_notehead_id.split('.')[0]
-                        is_chord = self.is_chord(svg_input_root, svg_note_id)
-
-                        if is_chord:
-                            #Buscar la mateixa note al fixed svg, agafar el id del stem germa i ficarlo com a id al json 
-                            correct_stem_id = self.get_brother_stem_id(svg_output_root, svg_note_id)
-                            if correct_stem_id is not None:
-                                whole_stem_id = line + ":" + correct_stem_id
-                                fixed_stem_ids[stem_object_id] = (whole_stem_id, closest_notehead_id, min_dist)
-                                
-                        else:
-                            # Construir stem id correcte
-                            correct_stem_id = closest_notehead_id.removesuffix("notehead") + "stem"
-                            fixed_stem_ids[stem_object_id] = (correct_stem_id, closest_notehead_id, min_dist)
-
-
-                    fixed_stem_ids = self.treure_repetits(fixed_stem_ids, all_noteheads, faulty_stem_objects, line, json_file, svg_output_root)                        
-                    for stem_object_id, (whole_stem_id, closest_notehead_id, min_dist) in fixed_stem_ids.items():
-                        fixed_flag_ids[stem_object_id + ".flag"] = whole_stem_id + ".flag"
+                    for parent, stems_dict in result.items():
+                        # stems_dict has only one key-value pair
+                        stem, value = next(iter(stems_dict.items()))
+                        
+                        whole_stem_id = line + ':' + parent + '.stem'
+                        fixed_stem_ids[stem] = whole_stem_id
+                                                
+         
+                    '''for stem_object_id, (whole_stem_id, closest_notehead_id, min_dist) in fixed_stem_ids.items():
+                        fixed_flag_ids[stem_object_id + ".flag"] = whole_stem_id + ".flag"'''
 
                 # Replace stem ids in annotations
                 new_annotations = []
                 for annotation in data.get("annotations", []):
                     if annotation["id"] in fixed_stem_ids:
-                        annotation["id"] = fixed_stem_ids[annotation["id"]][0]
+                        annotation["id"] = fixed_stem_ids[annotation["id"]]
                         new_annotations.append(annotation)
-                    elif annotation["id"] in fixed_flag_ids:
+                    '''elif annotation["id"] in fixed_flag_ids:
                         #Comprovar que la flag existeixi al svg
                         annotation["id"] = fixed_flag_ids[annotation["id"]]
-                        new_annotations.append(annotation)
+                        new_annotations.append(annotation)'''
 
                 data["annotations"] = new_annotations
 
@@ -418,6 +464,7 @@ class IdSolver():
     
 
     def actualitzar_noteheads(self, fixed_stem_ids, all_noteheads, stems_a_canviar, noteheads_prohibides, faulty_stem_objects, line, json_file):
+        
         for stem_object_id, stem_object_bbox in faulty_stem_objects[line].items():
             if stem_object_id in stems_a_canviar:
                 # Get corners of stem bbox
@@ -455,36 +502,46 @@ class IdSolver():
                                 min_dist = dist
                                 closest_notehead_id = notehead_object_id
 
-                # Check if the notehead is part of a chord
-                # Agafem svg file corresponent a la linia que ens interessa
-                line_number = line.removeprefix("line").zfill(2)
-                for file in self.files[json_file].keys():
-                    if line_number in file.split('.')[-2]:
-                        svg_file = file
-                        break
-                svg_notehead_id = closest_notehead_id.split(':')[-1]
-                svg_note_id = svg_notehead_id.split('.')[0]
-                tree = ET.parse(os.path.join(self.svg_input_folder, svg_file))
-                root = tree.getroot()
-                is_chord = self.is_chord(root, svg_note_id)
+                # Si li assigna una notehead, funciona de forma normal
+                if closest_notehead_id:
+                    # Check if the notehead is part of a chord
+                    # Agafem svg file corresponent a la linia que ens interessa
+                    line_number = line.removeprefix("line").zfill(2)
+                    if line_number == "00":
+                        line_number = "01"
 
-                if is_chord:
-                    #Buscar la mateixa note al fixed svg, agafar el id del stem germa i ficarlo com a id al json 
-                    tree = ET.parse(os.path.join(self.svg_output_folder, svg_file))
+                    for file in self.files[json_file].keys():
+                        if line_number in file.split('.')[-2]:
+                            svg_file = file
+                            break
+
+                    svg_notehead_id = closest_notehead_id.split(':')[-1]
+                    svg_note_id = svg_notehead_id.split('.')[0]
+                    
+                    tree = ET.parse(os.path.join(self.svg_input_folder, svg_file))
                     root = tree.getroot()
-                    correct_stem_id = self.get_brother_stem_id(root, svg_note_id)
-                    if correct_stem_id is not None:
-                        whole_stem_id = line + ":" + correct_stem_id
-                        fixed_stem_ids[stem_object_id] = (whole_stem_id, closest_notehead_id, min_dist)
+                    is_chord = self.is_chord(root, svg_note_id)
+
+                    if is_chord:
+                        #Buscar la mateixa note al fixed svg, agafar el id del stem germa i ficarlo com a id al json 
+                        tree = ET.parse(os.path.join(self.svg_output_folder, svg_file))
+                        root = tree.getroot()
+                        correct_stem_id = self.get_brother_stem_id(root, svg_note_id)
+                        if correct_stem_id is not None:
+                            whole_stem_id = line + ":" + correct_stem_id
+                            fixed_stem_ids[stem_object_id] = (whole_stem_id, closest_notehead_id, min_dist)
+                    else:
+                        # Construir stem id correcte
+                        correct_stem_id = closest_notehead_id.removesuffix("notehead") + "stem"
+                        fixed_stem_ids[stem_object_id] = (correct_stem_id, closest_notehead_id, min_dist)
+                # Si no li assigna notehead perque no queden, no arregla aquell id especific
                 else:
-                    # Construir stem id correcte
-                    correct_stem_id = closest_notehead_id.removesuffix("notehead") + "stem"
-                    fixed_stem_ids[stem_object_id] = (correct_stem_id, closest_notehead_id, min_dist)
-        
+                    print("NO ARREGLA SSTEEEEEEM WTRFFFFFFFFFFF")
+                    del fixed_stem_ids[stem_object_id]
         return fixed_stem_ids
 
 
-    def get_chord_notehead_dict(self, svg_root: ET.Element) -> dict:
+    def get_chord_notehead_dict(self, svg_root: ET.Element, line: str) -> dict:
         chord_notehead_dict = {}
 
         # Traverse all elements in the SVG
@@ -498,7 +555,7 @@ class IdSolver():
                     if subelem.attrib.get("class") == "notehead":
                         notehead_id = subelem.attrib.get("id")
                         if notehead_id:
-                            notehead_ids.append(notehead_id)
+                            notehead_ids.append(line + ":" + notehead_id)
 
                 if chord_id:
                     chord_notehead_dict[chord_id] = notehead_ids
@@ -508,7 +565,7 @@ class IdSolver():
 
     def treure_repetits(self, fixed_stem_ids, all_noteheads, faulty_stem_objects, line, json_file, svg_root):
                             
-        chord_to_noteheads = self.get_chord_notehead_dict(svg_root)
+        chord_to_noteheads = self.get_chord_notehead_dict(svg_root, line)
         repeated = self.buscar_repetits(fixed_stem_ids, chord_to_noteheads)
         noteheads_prohibides = {}
         while repeated != {}:
@@ -522,4 +579,100 @@ class IdSolver():
             repeated = self.buscar_repetits(fixed_stem_ids, chord_to_noteheads)
 
         return fixed_stem_ids
+
+
+    def get_available_stem_parents_dict(self, svg_root: ET.Element, line: str) -> dict:
+        stem_parents_dict = {}
+
+        # Traverse all elements in the SVG
+        for elem in svg_root.iter():
+            if elem.attrib.get("class") == "stem":
+                elem_id = elem.attrib.get("id")
+
+                # Pel cas on al SVG hi ha un objecte de classe stem sense id
+                if not elem_id:
+                    continue
+
+                parent_id = elem_id.removesuffix(".stem")
+
+                if parent_id not in stem_parents_dict.keys():
+                    stem_parents_dict[parent_id] = 1
+                else:
+                    stem_parents_dict[parent_id] += 1
+
+        return stem_parents_dict
+
+
+    def get_stem_parent_to_noteheads_dict(self, svg_root: ET.Element, stem_parents_dict: dict) -> dict:
+        stem_parents_to_noteheads = {}
+
+        for elem in svg_root.iter():
+            if elem.attrib.get("id") in stem_parents_dict.keys():
+                stem_parents_to_noteheads[elem.attrib.get("id")] = []
+                for subelem in elem.iter():
+                    if subelem.attrib.get("class") == "notehead":
+                        stem_parents_to_noteheads[elem.attrib.get("id")].append(subelem.attrib.get("id"))
+                
+                # Pel bug concret on una note no te notehead ni al svg ni al json
+                if stem_parents_to_noteheads[elem.attrib.get("id")] == []:
+                    del stem_parents_to_noteheads[elem.attrib.get("id")]
+                    del stem_parents_dict[elem.attrib.get("id")]
+
+        return stem_parents_to_noteheads, stem_parents_dict
+
+
+    def final_stem_assigning(self, all_distances_dict: dict) -> dict:
+        
+        #Agafem el stem amb minima distancia per cada parent object
+        result = {
+            parent: {min(stems, key=stems.get): min(stems.values())}
+            for parent, stems in all_distances_dict.items()
+        }   
+
+        # Comprovem si hi ha stems repetits als minims dels parents objects (no podem assignar dos stems a un mateix objecte -> ids duplicats)
+        duplicates = defaultdict(list)
+        for parent, stems in result.items():
+            for stem in stems:
+                duplicates[stem].append(parent)
+        duplicates = {stem: parents for stem, parents in duplicates.items() if len(parents) > 1}
+
+        # Mentre hi hagi repetits
+        while duplicates:
+            
+            # Mirem quins stems es repeteixen i eliminem de la matriu de distances els no optims
+            for stem, parents in duplicates.items():
+                
+                min_dist = float('inf')
+                for parent in parents:
+                    if all_distances_dict[parent][stem] < min_dist:
+                        min_parent = parent
+                        min_dist = all_distances_dict[parent][stem]
+
+                # Elimino de la matriu de distancies els stems repetits de aquests pares repetits menys el pare amb distancia minima
+                for parent in parents:
+                    if parent != min_parent:
+                        del all_distances_dict[parent][stem]
+            
+            # Pel cas quan al json no hi ha alguns stems del svg
+            for parent in list(all_distances_dict.keys()):
+                if not all_distances_dict[parent]:  # empty dict
+                    del all_distances_dict[parent]
+
+            # Tornem a agafar el stem amb minima distancia amb la matriu de distancies actualitzada
+            result = {
+                parent: {min(stems, key=stems.get): min(stems.values())}
+                for parent, stems in all_distances_dict.items()
+            }
+
+            # Tornem a comprovar si hi ha stems repetits
+            duplicates = defaultdict(list)
+            for parent, stems in result.items():
+                for stem in stems:
+                    duplicates[stem].append(parent)
+            duplicates = {stem: parents for stem, parents in duplicates.items() if len(parents) > 1}
+
+        return result
+
+
+
 
